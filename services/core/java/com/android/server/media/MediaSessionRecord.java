@@ -39,6 +39,7 @@ import android.media.session.PlaybackState;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
@@ -64,7 +65,8 @@ import java.util.ArrayList;
  */
 public class MediaSessionRecord implements IBinder.DeathRecipient {
     private static final String TAG = "MediaSessionRecord";
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG) ||
+                                             !"user".equals(Build.TYPE);
 
     /**
      * The amount of time we'll send an assumed volume after the last volume
@@ -791,6 +793,12 @@ public class MediaSessionRecord implements IBinder.DeathRecipient {
 
         @Override
         public void setMetadata(MediaMetadata metadata) {
+            if(DEBUG){
+                final String eventSource = new StringBuilder("setMetadata").append(" from u/pid:")
+                    .append(Binder.getCallingUid()).append("/")
+                    .append(Binder.getCallingPid()).toString();
+                Log.d(TAG, eventSource);
+            }
             synchronized (mLock) {
                 MediaMetadata temp = metadata == null ? null : new MediaMetadata.Builder(metadata)
                         .build();
@@ -811,6 +819,14 @@ public class MediaSessionRecord implements IBinder.DeathRecipient {
                     ? PlaybackState.STATE_NONE : mPlaybackState.getState();
             int newState = state == null
                     ? PlaybackState.STATE_NONE : state.getState();
+            if(DEBUG){
+                final String eventSource =
+                   new StringBuilder("setPlaybackState").append(" from u/pid:")
+                                                        .append(Binder.getCallingUid()).append("/")
+                                                        .append(Binder.getCallingPid()).toString();
+                Log.d(TAG, "Playback state changed from: " + oldState + " to:" + newState
+                    + "from Source:" + eventSource);
+            }
             synchronized (mLock) {
                 mPlaybackState = state;
             }

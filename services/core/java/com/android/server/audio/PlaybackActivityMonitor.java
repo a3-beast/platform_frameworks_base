@@ -27,6 +27,7 @@ import android.media.IPlaybackConfigDispatcher;
 import android.media.PlayerBase;
 import android.media.VolumeShaper;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -51,7 +52,8 @@ public final class PlaybackActivityMonitor
 
     public static final String TAG = "AudioService.PlaybackActivityMonitor";
 
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG)
+        || !"user".equals(Build.TYPE);
     private static final int VOLUME_SHAPER_SYSTEM_DUCK_ID = 1;
 
     private static final VolumeShaper.Configuration DUCK_VSHAPE =

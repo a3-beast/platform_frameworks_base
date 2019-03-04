@@ -144,8 +144,12 @@ import java.util.Set;
 public class Tethering extends BaseNetworkObserver {
 
     private final static String TAG = Tethering.class.getSimpleName();
-    private final static boolean DBG = false;
-    private final static boolean VDBG = false;
+    // M: Log debugging @{
+    private static final String PROP_FORCE_DEBUG_KEY = "persist.vendor.log.tag.tel_dbg";
+    private final static boolean DBG = true;
+    private final static boolean VDBG = !android.os.Build.IS_ENG ?
+            (android.os.SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1) : true;
+    // @}
 
     protected static final String DISABLE_PROVISIONING_SYSPROP_KEY = "net.tethering.noprovisioning";
 
@@ -183,6 +187,11 @@ public class Tethering extends BaseNetworkObserver {
     }
 
     private final SharedLog mLog = new SharedLog(TAG);
+
+    // M: Support Wi-Fi Hotspot & IPv6 tethering only @{
+    private static dalvik.system.PathClassLoader sPcLoader;
+    private static Object mMtkTethering;
+    // @}
 
     // used to synchronize public access to members
     private final Object mPublicSync;
@@ -291,6 +300,10 @@ public class Tethering extends BaseNetworkObserver {
         if (umi != null) {
             umi.addUserRestrictionsListener(new TetheringUserRestrictionListener(this));
         }
+
+        //  M: Support Tethering add-on mechanism @{
+        mMtkTethering = getMtkTethering(mContext);
+        // @}
     }
 
     private WifiManager getWifiManager() {
@@ -1241,7 +1254,8 @@ public class Tethering extends BaseNetworkObserver {
         // so that the garbage collector does not clean up the state machine before it has a chance
         // to tear itself down.
         private final ArrayList<TetherInterfaceStateMachine> mNotifyList;
-        private final IPv6TetheringCoordinator mIPv6TetheringCoordinator;
+        // M: Support IPv6 tethering upstreaming
+        private IPv6TetheringCoordinator mIPv6TetheringCoordinator;
         private final OffloadWrapper mOffload;
 
         private static final int UPSTREAM_SETTLE_TIME_MS     = 10000;
@@ -1266,7 +1280,13 @@ public class Tethering extends BaseNetworkObserver {
             addState(mSetDnsForwardersErrorState);
 
             mNotifyList = new ArrayList<>();
-            mIPv6TetheringCoordinator = deps.getIPv6TetheringCoordinator(mNotifyList, mLog);
+
+            // M: Support IPv6 tethering upstreaming @{
+            mIPv6TetheringCoordinator = getMtkIPv6TetheringCoordinator(mNotifyList, mLog);
+            if (mIPv6TetheringCoordinator == null) {
+                mIPv6TetheringCoordinator = deps.getIPv6TetheringCoordinator(mNotifyList, mLog);
+            }
+            // @}
             mOffload = new OffloadWrapper();
 
             setInitialState(mInitialState);
@@ -1350,11 +1370,8 @@ public class Tethering extends BaseNetworkObserver {
             // do not currently know how to watch for changes in DUN settings.
             maybeUpdateConfiguration();
 
-            final TetheringConfiguration config = mConfig;
-            final NetworkState ns = (config.chooseUpstreamAutomatically)
-                    ? mUpstreamNetworkMonitor.getCurrentPreferredUpstream()
-                    : mUpstreamNetworkMonitor.selectPreferredUpstreamType(
-                            config.preferredUpstreamIfaceTypes);
+            final NetworkState ns = mUpstreamNetworkMonitor.selectPreferredUpstreamType(
+                    mConfig.preferredUpstreamIfaceTypes);
             if (ns == null) {
                 if (tryCell) {
                     mUpstreamNetworkMonitor.registerMobileNetworkRequest();
@@ -1374,7 +1391,9 @@ public class Tethering extends BaseNetworkObserver {
                 // interface described by linkProperties, or one of the interfaces
                 // stacked on top of it.
                 mLog.i("Looking for default routes on: " + ns.linkProperties);
-                ifaces = TetheringInterfaceUtils.getTetheringInterfaces(ns);
+                /// M: [ALPS04058632] allow IPv6 ULA for auto testing
+                // ifaces = TetheringInterfaceUtils.getTetheringInterfaces(ns);
+                ifaces = getTetheringInterfaces(ns);
                 mLog.i("Found upstream interface(s): " + ifaces);
             }
 
@@ -1383,7 +1402,9 @@ public class Tethering extends BaseNetworkObserver {
             }
             notifyDownstreamsOfNewUpstreamIface(ifaces);
             if (ns != null && pertainsToCurrentUpstream(ns)) {
-                // If we already have NetworkState for this network update it immediately.
+                // If we already have NetworkState for this network examine
+                // it immediately, because there likely will be no second
+                // EVENT_ON_AVAILABLE (it was already received).
                 handleNewUpstreamNetworkState(ns);
             } else if (mCurrentUpstreamIfaceSet == null) {
                 // There are no available upstream networks.
@@ -1499,6 +1520,15 @@ public class Tethering extends BaseNetworkObserver {
             }
 
             switch (arg1) {
+                case UpstreamNetworkMonitor.EVENT_ON_AVAILABLE:
+                    // The default network changed, or DUN connected
+                    // before this callback was processed. Updates
+                    // for the current NetworkCapabilities and
+                    // LinkProperties have been requested (default
+                    // request) or are being sent shortly (DUN). Do
+                    // nothing until they arrive; if no updates
+                    // arrive there's nothing to do.
+                    break;
                 case UpstreamNetworkMonitor.EVENT_ON_CAPABILITIES:
                     handleNewUpstreamNetworkState(ns);
                     break;
@@ -1531,7 +1561,7 @@ public class Tethering extends BaseNetworkObserver {
                 }
 
                 mSimChange.startListening();
-                mUpstreamNetworkMonitor.start(mDeps.getDefaultNetworkRequest());
+                mUpstreamNetworkMonitor.start();
 
                 // TODO: De-duplicate with updateUpstreamWanted() below.
                 if (upstreamWanted()) {
@@ -2025,6 +2055,78 @@ public class Tethering extends BaseNetworkObserver {
                 : null;
         return (ri != null) ? ri.getInterface() : null;
     }
+
+    // M: Modify for framework add-on @{
+    private Object getMtkTethering(Context context) {
+        try {
+            String jarPath = "/system/framework/mediatek-framework-net.jar";
+            String classPath = "com.mediatek.net.tethering.MtkTethering";
+            if (sPcLoader == null) {
+                sPcLoader = new dalvik.system.PathClassLoader(jarPath, mContext.getClassLoader());
+            }
+            if (sPcLoader != null) {
+                Class mtkTethering = sPcLoader.loadClass(classPath);
+                java.lang.reflect.Constructor clazzConstructfunc = mtkTethering.getConstructor(
+                        new Class[] {Context.class, Tethering.class});
+                clazzConstructfunc.setAccessible(true);
+                Object mtkTetheringObj = (Object)
+                        clazzConstructfunc.newInstance(context, Tethering.this);
+                Log.d(TAG, "getMtkTethering is loaded");
+                return mtkTetheringObj;
+            }
+            Log.e(TAG, "sPcLoader is null for getMtkTethering");
+        }  catch (Exception e) {
+            Log.e(TAG, "No mtkTethering! Used AOSP for instead! %s", e);
+        }
+        return null;
+    }
+
+    private IPv6TetheringCoordinator getMtkIPv6TetheringCoordinator(
+            ArrayList<TetherInterfaceStateMachine> notifyList, SharedLog log) {
+        try {
+            if (sPcLoader == null) {
+                String jarPath = "/system/framework/mediatek-framework-net.jar";
+                sPcLoader = new dalvik.system.PathClassLoader(jarPath, mContext.getClassLoader());
+            }
+            if (sPcLoader != null) {
+                String classPath = "com.mediatek.net.tethering.MtkIPv6TetheringCoordinator";
+                Class mtkIpv6Tethering = sPcLoader.loadClass(classPath);
+                java.lang.reflect.Constructor clazzConstructfunc =
+                        mtkIpv6Tethering.getConstructor(
+                        new Class[] {ArrayList.class, SharedLog.class});
+                clazzConstructfunc.setAccessible(true);
+                IPv6TetheringCoordinator object = (IPv6TetheringCoordinator)
+                        clazzConstructfunc.newInstance(notifyList, log);
+                Log.d(TAG, "MtkIPv6TetheringCoordinator is loaded");
+                return object;
+            }
+            Log.e(TAG, "sPcLoader is null for getMtkIPv6TetheringCoordinator");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get MtkIPv6TetheringCoordinator: %s", e);
+        }
+        return null;
+    }
+
+    /// M: [ALPS04058632] allow IPv6 ULA for auto testing
+    private InterfaceSet getTetheringInterfaces(NetworkState ns) {
+        InterfaceSet ifaces = null;
+        if (mMtkTethering != null) {
+            try {
+                java.lang.reflect.Method method =
+                        mMtkTethering.getClass().getMethod(
+                            "getTetheringInterfaces", NetworkState.class);
+                method.setAccessible(true);
+                ifaces = (InterfaceSet) method.invoke(mMtkTethering, ns);
+            } catch (Exception e) {
+                Log.e(TAG, "getTetheringInterfaces method error:" + e);
+            }
+        } else {
+            Log.w(TAG, "getTetheringInterfaces fallback to aosp");
+            ifaces = TetheringInterfaceUtils.getTetheringInterfaces(ns);
+        }
+        return ifaces;
+    }
+    // @}
 
     private static String[] copy(String[] strarray) {
         return Arrays.copyOf(strarray, strarray.length);

@@ -113,6 +113,10 @@ public class ZenModeControllerImpl extends CurrentUserTracker implements ZenMode
 
     @Override
     public void addCallback(Callback callback) {
+        if (callback == null) {
+            Slog.e(TAG, "Attempted to add a null callback.");
+            return;
+        }
         mCallbacks.add(callback);
     }
 

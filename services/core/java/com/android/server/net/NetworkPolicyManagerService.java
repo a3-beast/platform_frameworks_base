@@ -260,6 +260,9 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+// MTK add
+import static android.telephony.TelephonyManager.SIM_STATE_READY;
+
 /**
  * Service that maintains low-level network policy rules, using
  * {@link NetworkStatsService} statistics to drive those rules.
@@ -292,6 +295,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
     static final String TAG = NetworkPolicyLogger.TAG;
     private static final boolean LOGD = NetworkPolicyLogger.LOGD;
     private static final boolean LOGV = NetworkPolicyLogger.LOGV;
+    private static final boolean ENG_DBG = LOGV;
 
     /**
      * No opportunistic quota could be calculated from user data plan or data settings.
@@ -1284,7 +1288,12 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
      */
     private void notifyOverLimitNL(NetworkTemplate template) {
         if (!mOverLimitNotified.contains(template)) {
-            mContext.startActivity(buildNetworkOverLimitIntent(mContext.getResources(), template));
+            // M: Fix activity no show under multi user case
+            if (ENG_DBG) {
+                Slog.v(TAG, "notifyOverLimitNL for" + template);
+            }
+            mContext.startActivityAsUser(buildNetworkOverLimitIntent(mContext.getResources(),
+                template),UserHandle.CURRENT);
             mOverLimitNotified.add(template);
         }
     }
@@ -1323,8 +1332,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                         mContext, 0, snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT));
 
                 final Intent viewIntent = buildViewDataUsageIntent(res, policy.template);
-                builder.setContentIntent(PendingIntent.getActivity(
-                        mContext, 0, viewIntent, PendingIntent.FLAG_UPDATE_CURRENT));
+                builder.setContentIntent(PendingIntent.getActivityAsUser(
+                        mContext, 0, viewIntent, PendingIntent.FLAG_UPDATE_CURRENT,
+                        null, UserHandle.CURRENT));
 
                 break;
             }
@@ -1345,8 +1355,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                 builder.setSmallIcon(R.drawable.stat_notify_disabled_data);
 
                 final Intent intent = buildNetworkOverLimitIntent(res, policy.template);
-                builder.setContentIntent(PendingIntent.getActivity(
-                        mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT));
+                builder.setContentIntent(PendingIntent.getActivityAsUser(
+                        mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT,
+                        null, UserHandle.CURRENT));
                 break;
             }
             case TYPE_LIMIT_SNOOZED: {
@@ -1369,8 +1380,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                 builder.setChannelId(SystemNotificationChannels.NETWORK_STATUS);
 
                 final Intent intent = buildViewDataUsageIntent(res, policy.template);
-                builder.setContentIntent(PendingIntent.getActivity(
-                        mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT));
+                builder.setContentIntent(PendingIntent.getActivityAsUser(
+                        mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT,
+                        null, UserHandle.CURRENT));
                 break;
             }
             case TYPE_RAPID: {
@@ -1598,7 +1610,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                         ensureActiveMobilePolicyAL(subId, subscriberId);
                         maybeUpdateMobilePolicyCycleAL(subId, subscriberId);
                     } else {
-                        Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                        // Mtk: prevent exception
+                        // Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                        Slog.e(TAG, "Missing subscriberId for subId " + subId);
                     }
 
                     // update network and notification rules, as the data cycle changed and it's
@@ -1641,6 +1655,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
 
         for (int i = mNetworkPolicy.size()-1; i >= 0; i--) {
             final NetworkPolicy policy = mNetworkPolicy.valueAt(i);
+            if (ENG_DBG) Slog.v(TAG, " checking policy:" + policy);
             // shortcut when policy has no limit
             if (policy.limitBytes == LIMIT_DISABLED || !policy.hasCycle()) {
                 setNetworkTemplateEnabled(policy.template, true);
@@ -1679,7 +1694,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
     private void setNetworkTemplateEnabledInner(NetworkTemplate template, boolean enabled) {
         // TODO: reach into ConnectivityManager to proactively disable bringing
         // up this network, since we know that traffic will be blocked.
-
+        if (ENG_DBG) Log.d(TAG, "setNetworkTemplateEnabled:" + enabled + ":on:" + template);
         if (template.getMatchRule() == MATCH_MOBILE) {
             // If mobile data usage hits the limit or if the user resumes the data, we need to
             // notify telephony.
@@ -1704,6 +1719,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
             final TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
             for (int i = 0; i < matchingSubIds.size(); i++) {
                 final int subId = matchingSubIds.get(i);
+                if (ENG_DBG) Log.d(TAG, "setPolicyDataEnabled:" + enabled + ":on:" + subId);
                 tm.setPolicyDataEnabled(enabled, subId);
             }
         }
@@ -1748,7 +1764,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
             if (!TextUtils.isEmpty(subscriberId)) {
                 subIdToSubscriberId.put(subId, subscriberId);
             } else {
-                Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                // Mtk: prevent exception
+                // Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                Slog.e(TAG, "Missing subscriberId for subId " + subId);
             }
         }
 
@@ -1810,6 +1828,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
             matchingIfaces.clear();
             for (int j = identified.size() - 1; j >= 0; j--) {
                 if (policy.template.matches(identified.valueAt(j))) {
+                    if (ENG_DBG) Slog.d(TAG, "add iface for policy:" + policy);
                     collectIfaces(matchingIfaces, identified.keyAt(j));
                 }
             }
@@ -1975,6 +1994,14 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
      * @return true if a mobile network policy was added, or false one already existed.
      */
     private boolean ensureActiveMobilePolicyAL(int subId, String subscriberId) {
+        if (ENG_DBG) {
+            Slog.v(TAG, "ensureActiveMobilePolicyLocked subscriberId(" + subscriberId +
+            "), subId(" + subId + ")");
+        }
+        if (subscriberId == null) {
+            Slog.v(TAG, "skip ensureActiveMobilePolicyAL due to subscriberId = null");
+            return false;
+        }
         // Poke around to see if we already have a policy
         final NetworkIdentity probeIdent = new NetworkIdentity(TYPE_MOBILE,
                 TelephonyManager.NETWORK_TYPE_UNKNOWN, subscriberId, null, false, true, true);
@@ -2668,6 +2695,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
     }
 
     void addNetworkPolicyAL(NetworkPolicy policy) {
+        if (ENG_DBG) Slog.v(TAG, "addNetworkPolicyLocked(" + policy + ")");
         NetworkPolicy[] policies = getNetworkPolicies(mContext.getOpPackageName());
         policies = ArrayUtils.appendElement(NetworkPolicy.class, policies, policy);
         setNetworkPolicies(policies);
@@ -2735,6 +2763,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
     }
 
     void performSnooze(NetworkTemplate template, int type) {
+        if (LOGD) Log.d(TAG, "performSnooze on:" + template);
         final long currentTime = mClock.millis();
         synchronized (mUidRulesFirstLock) {
             synchronized (mNetworkPoliciesSecondLock) {
@@ -2780,6 +2809,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         try {
             mContext.enforceCallingOrSelfPermission(MANAGE_NETWORK_POLICY, TAG);
             final long token = Binder.clearCallingIdentity();
+            Slog.d(TAG, "setRestrictBackground(" + restrictBackground + ")");
             try {
                 synchronized (mUidRulesFirstLock) {
                     setRestrictBackgroundUL(restrictBackground);
@@ -3168,7 +3198,9 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                         ensureActiveMobilePolicyAL(subId, subscriberId);
                         maybeUpdateMobilePolicyCycleAL(subId, subscriberId);
                     } else {
-                        Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                        // Mtk: prevent exception
+                        // Slog.wtf(TAG, "Missing subscriberId for subId " + subId);
+                        Slog.e(TAG, "Missing subscriberId for subId " + subId);
                     }
 
                     handleNetworkPoliciesUpdateAL(true);
@@ -4275,6 +4307,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
     private final Handler.Callback mHandlerCallback = new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
+            if (LOGV) Log.v(TAG, "handleMessage(): msg=" + msg.what);
             switch (msg.what) {
                 case MSG_RULES_CHANGED: {
                     final int uid = msg.arg1;
@@ -4352,7 +4385,10 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
                     return true;
                 }
                 case MSG_UPDATE_INTERFACE_QUOTA: {
-                    removeInterfaceQuota((String) msg.obj);
+                    // M: marked due to netd performance issue.
+                    // Skip this so that BandwidthController can run updateQuota
+                    // removeInterfaceQuota((String) msg.obj);
+
                     // int params need to be stitched back into a long
                     setInterfaceQuota((String) msg.obj,
                             ((long) msg.arg1 << 32) | (msg.arg2 & 0xFFFFFFFFL));
@@ -4475,7 +4511,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         try {
             mNetworkManager.setInterfaceQuota(iface, quotaBytes);
         } catch (IllegalStateException e) {
-            Log.wtf(TAG, "problem setting interface quota", e);
+            Log.e(TAG, "problem setting interface quota", e);
         } catch (RemoteException e) {
             // ignored; service lives in system_server
         }
@@ -4489,7 +4525,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         try {
             mNetworkManager.removeInterfaceQuota(iface);
         } catch (IllegalStateException e) {
-            Log.wtf(TAG, "problem removing interface quota", e);
+            Log.e(TAG, "problem removing interface quota", e);
         } catch (RemoteException e) {
             // ignored; service lives in system_server
         }
@@ -4500,7 +4536,7 @@ public class NetworkPolicyManagerService extends INetworkPolicyManager.Stub {
         try {
             mNetworkManager.setUidMeteredNetworkBlacklist(uid, enable);
         } catch (IllegalStateException e) {
-            Log.wtf(TAG, "problem setting blacklist (" + enable + ") rules for " + uid, e);
+            Log.e(TAG, "problem setting blacklist (" + enable + ") rules for " + uid, e);
         } catch (RemoteException e) {
             // ignored; service lives in system_server
         }

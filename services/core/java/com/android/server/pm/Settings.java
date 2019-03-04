@@ -93,6 +93,9 @@ import com.android.server.pm.permission.PermissionSettings;
 import com.android.server.pm.permission.PermissionsState;
 import com.android.server.pm.permission.PermissionsState.PermissionState;
 
+import com.mediatek.server.pm.PmsExt;
+import com.mediatek.server.MtkSystemServiceFactory;
+
 import libcore.io.IoUtils;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -124,7 +127,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-
+;
 /**
  * Holds information about dynamic settings.
  */
@@ -421,6 +424,9 @@ public final class Settings {
     /** Settings and other information about permissions */
     final PermissionSettings mPermissions;
 
+    //M: PMS enhance part
+    private static PmsExt sPmsExt = MtkSystemServiceFactory.getInstance().makePmsExt();
+
     Settings(PermissionSettings permissions, Object lock) {
         this(Environment.getDataDirectory(), permissions, lock);
     }
@@ -542,7 +548,9 @@ public final class Settings {
         }
         final PackageSetting dp = mDisabledSysPackages.get(name);
         // always make sure the system package code and resource paths dont change
-        if (dp == null && p.pkg != null && p.pkg.isSystem() && !p.pkg.isUpdatedSystemApp()) {
+        if (dp == null && p.pkg != null && ((p.pkg.isSystem() && !p.pkg.isUpdatedSystemApp())
+                // M:operator app also is removable and not system flag
+                || sPmsExt.isRemovableSysApp(name))) {
             if((p.pkg != null) && (p.pkg.applicationInfo != null)) {
                 p.pkg.applicationInfo.flags |= ApplicationInfo.FLAG_UPDATED_SYSTEM_APP;
             }
@@ -4120,8 +4128,7 @@ public final class Settings {
                     continue;
                 }
                 final boolean shouldInstall = ps.isSystem() &&
-                        !ArrayUtils.contains(disallowedPackages, ps.name) &&
-                        !ps.pkg.applicationInfo.hiddenUntilInstalled;
+                        !ArrayUtils.contains(disallowedPackages, ps.name);
                 // Only system apps are initially installed.
                 ps.setInstalled(shouldInstall, userHandle);
                 if (!shouldInstall) {

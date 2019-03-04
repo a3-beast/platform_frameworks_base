@@ -51,6 +51,30 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 
+// MTK-START
+// For loading MTK proprietary system SMS application list
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.HashMap;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import android.os.Environment;
+import android.telephony.Rlog;
+import android.util.Xml;
+
+import com.android.internal.util.XmlUtils;
+
+import java.util.ArrayList;
+
+import android.os.Build;
+
+import java.lang.reflect.Method;
+// MTK-END
+
 /**
  * Class for managing the primary application that we will deliver SMS/MMS messages to
  *
@@ -59,7 +83,10 @@ import java.util.List;
 public final class SmsApplication {
     static final String LOG_TAG = "SmsApplication";
     private static final String PHONE_PACKAGE_NAME = "com.android.phone";
-    private static final String BLUETOOTH_PACKAGE_NAME = "com.android.bluetooth";
+    // MTK-START
+    // Modify visibility for the proprietary class
+    public static final String BLUETOOTH_PACKAGE_NAME = "com.android.bluetooth";
+    // MTK-END
     private static final String MMS_SERVICE_PACKAGE_NAME = "com.android.mms.service";
     private static final String TELEPHONY_PROVIDER_PACKAGE_NAME = "com.android.providers.telephony";
 
@@ -85,7 +112,10 @@ public final class SmsApplication {
         /**
          * The class name of the SMS_DELIVER_ACTION receiver in this app.
          */
-        private String mSmsReceiverClass;
+        // MTK-START
+        // Modify visibility for the proprietary class
+        public String mSmsReceiverClass;
+        // MTK-END
 
         /**
          * The class name of the WAP_PUSH_DELIVER_ACTION receiver in this app.
@@ -423,7 +453,10 @@ public final class SmsApplication {
      * (3) The currently configured highest priority broadcast receiver
      * (4) Null
      */
-    private static SmsApplicationData getApplication(Context context, boolean updateIfNeeded,
+    // MTK-START
+    // Modifiy visibility for the proprietary class
+    public static SmsApplicationData getApplication(Context context, boolean updateIfNeeded,
+    // MTK-END
             int userId) {
         TelephonyManager tm = (TelephonyManager)
                 context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -517,6 +550,20 @@ public final class SmsApplication {
                         MMS_SERVICE_PACKAGE_NAME);
                 assignWriteSmsPermissionToSystemApp(context, packageManager, appOps,
                         TELEPHONY_PROVIDER_PACKAGE_NAME);
+
+                // MTK-START
+                // Verify that the MTK special internal apps have permissions
+                // Get the db special visitor list
+                if (mSmsDbVisitorList == null) {
+                    loadSmsDbVisitor();
+                }
+                if (mSmsDbVisitorList != null) {
+                    for (int i = 0 ; i < mSmsDbVisitorList.size() ; i++) {
+                        assignWriteSmsPermissionToSystemApp(context, packageManager, appOps,
+                                mSmsDbVisitorList.get(i));
+                    }
+                }
+                // MTK-END
                 // Give WRITE_SMS AppOps permission to UID 1001 which contains multiple
                 // apps, all of them should be able to write to telephony provider.
                 // This is to allow the proxy package permission check in telephony provider
@@ -608,6 +655,20 @@ public final class SmsApplication {
                     MMS_SERVICE_PACKAGE_NAME);
             assignWriteSmsPermissionToSystemApp(context, packageManager, appOps,
                     TELEPHONY_PROVIDER_PACKAGE_NAME);
+
+            // MTK-START
+            // Verify that the MTK special internal apps have permissions
+            // Get the db special visitor plug-in class
+            if (mSmsDbVisitorList == null) {
+                loadSmsDbVisitor();
+            }
+            if (mSmsDbVisitorList != null) {
+                for (int i = 0 ; i < mSmsDbVisitorList.size() ; i++) {
+                    assignWriteSmsPermissionToSystemApp(context, packageManager, appOps,
+                            mSmsDbVisitorList.get(i));
+                }
+            }
+            // MTK-END
             // Give WRITE_SMS AppOps permission to UID 1001 which contains multiple
             // apps, all of them should be able to write to telephony provider.
             // This is to allow the proxy package permission check in telephony provider
@@ -967,6 +1028,21 @@ public final class SmsApplication {
                 || BLUETOOTH_PACKAGE_NAME.equals(packageName)) {
             return true;
         }
+
+        // MTK-START
+        // Get the db special visitor list
+        if (mSmsDbVisitorList == null) {
+            loadSmsDbVisitor();
+        }
+        if (mSmsDbVisitorList != null) {
+            for (int i = 0 ; i < mSmsDbVisitorList.size() ; i++) {
+                if (packageName.equals(mSmsDbVisitorList.get(i))) {
+                    return true;
+                }
+            }
+        }
+        // MTK-END
+
         return false;
     }
 
@@ -977,4 +1053,89 @@ public final class SmsApplication {
         }
         return null;
     }
+
+    // MTK-START
+    // For loading MTK proprietary system SMS application list
+    private static final boolean ENG = "eng".equals(Build.TYPE);
+    public static ArrayList<String> mSmsDbVisitorList = null;
+
+
+    private static final String SMS_DB_VISITOR_PATH ="/vendor/etc/smsdbvisitor.xml";
+
+    private static final Object mListLock = new Object();
+
+    public static void loadSmsDbVisitor() {
+        synchronized(mListLock) {
+            if (mSmsDbVisitorList == null) {
+                if (ENG) {
+                    Rlog.w(LOG_TAG, "load smsdbvisitor.xml...");
+                }
+                mSmsDbVisitorList = new ArrayList<String>();
+
+                FileReader dbReader;
+
+                File dbFile = new File(SMS_DB_VISITOR_PATH);
+
+                try {
+                    dbReader = new FileReader(dbFile);
+                } catch (FileNotFoundException e) {
+                    Rlog.w(LOG_TAG, "Can not open " + dbFile.getAbsolutePath());
+                    return;
+                }
+
+                try {
+                    XmlPullParser parser = Xml.newPullParser();
+                    parser.setInput(dbReader);
+
+                    XmlUtils.beginDocument(parser, "SmsDbVisitor");
+
+                    while (true) {
+                        XmlUtils.nextElement(parser);
+
+                        String name = parser.getName();
+                        if (!"SmsDbVisitor".equals(name)) {
+                            break;
+                        }
+
+                        String packagename = parser.getAttributeValue(null, "package");
+
+                        mSmsDbVisitorList.add(packagename);
+                    }
+                    dbReader.close();
+                    if (ENG) {
+                        Rlog.d(LOG_TAG, "SMS db visitor list size=" + mSmsDbVisitorList.size());
+                    }
+                } catch (XmlPullParserException e) {
+                    Rlog.w(LOG_TAG, "Exception in smsdbvisitor parser " + e);
+                } catch (IOException e) {
+                    Rlog.w(LOG_TAG, "Exception in smsdbvisitor parser " + e);
+                }
+            } else {
+                Rlog.d(LOG_TAG, "smsdbvisitor is already loaded");
+            }
+        }
+    }
+
+    /**
+     * Returns whether need to write the SMS message to SMS database for this package.
+     * <p>
+     * Caller must pass in the correct user context amd user identifier if calling from a
+     * singleton service.
+     */
+    public static boolean shouldWriteMessageForPackage(String packageName,
+            Context context, int userId) {
+            String className = "com.mediatek.internal.telephony.MtkSmsApplication";
+            try {
+                Class clazz = Class.forName(className);
+                Class[] argTypes = new Class[] { String.class, Context.class, int.class};
+                Method m = clazz.getDeclaredMethod("shouldWriteMessageForPackage", argTypes);
+                Object[] params = { packageName, context, userId };
+                Rlog.d(LOG_TAG, "invoke redirect to " + clazz.getName() + "." + m.getName());
+                return (boolean)m.invoke(null, params);
+            } catch (Exception  e) {
+                Rlog.w(LOG_TAG, "No MtkCarrierConfigManager! Do nothing. - " + e);
+                return shouldWriteMessageForPackage(packageName, context);
+            }
+    }
+    // MTK-END
 }

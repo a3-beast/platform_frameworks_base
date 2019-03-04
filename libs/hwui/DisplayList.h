@@ -74,7 +74,8 @@ struct FunctorContainer {
  */
 class DisplayList {
     friend class RecordingCanvas;
-
+    /// M: Dr. HWUI
+    friend class CanvasStateRecording;
 public:
     struct Chunk {
         // range of included ops in DisplayList::ops()
@@ -135,6 +136,9 @@ protected:
 private:
     LsaVector<Chunk> chunks;
     LsaVector<BaseOpType*> ops;
+#ifdef ENABLE_DR_HWUI
+    LsaVector<BaseOpType*> allOps;  // M: record all ops including state ops
+#endif
 
     // list of Ops referring to RenderNode children for quick, non-drawing traversal
     LsaVector<NodeOpType*> children;

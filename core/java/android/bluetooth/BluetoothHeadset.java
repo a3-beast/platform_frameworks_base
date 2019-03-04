@@ -335,7 +335,19 @@ public final class BluetoothHeadset implements BluetoothProfile {
                 public void onBluetoothStateChange(boolean up) {
                     if (DBG) Log.d(TAG, "onBluetoothStateChange: up=" + up);
                     if (!up) {
-                        if (VDBG) Log.d(TAG, "Unbinding service...");
+                        if (VDBG) Log.d(TAG,"Unbinding service...");
+                        //M: ALPS03586420: HFP onServiceDisconnected sometimes late than
+                        //unbindService which onServiceDisconnected will fail to callback.
+                        //In this case, onServiceDisconnected should be called again to make
+                        //disable flow correct.
+                        synchronized (mAdapter) {
+                            if (mService != null) {
+                                if (DBG) Log.d(TAG, "Proxy object disconnected");
+                                mService = null;
+                                mHandler.sendMessage(mHandler.obtainMessage(
+                                        MESSAGE_HEADSET_SERVICE_DISCONNECTED));
+                            }
+                        }
                         doUnbind();
                     } else {
                         synchronized (mConnection) {
@@ -384,13 +396,12 @@ public final class BluetoothHeadset implements BluetoothProfile {
 
     void doUnbind() {
         synchronized (mConnection) {
-            if (mService != null) {
-                try {
-                    mAdapter.getBluetoothManager().unbindBluetoothProfileService(
-                            BluetoothProfile.HEADSET, mConnection);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Unable to unbind HeadsetService", e);
-                }
+        //M: ALPS03570880: Fix HFP bind service leak
+            try {
+                mAdapter.getBluetoothManager().unbindBluetoothProfileService(
+                        BluetoothProfile.HEADSET, mConnection);
+            } catch (RemoteException e) {
+                Log.e(TAG,"Unable to unbind HeadsetService", e);
             }
         }
     }
@@ -412,8 +423,12 @@ public final class BluetoothHeadset implements BluetoothProfile {
                 Log.e(TAG, "", e);
             }
         }
+        //M: ALPS03570880: Fix HFP bind service leak
+        if (mService != null) {
+            mService = null;
+            doUnbind();
+        }
         mServiceListener = null;
-        doUnbind();
     }
 
     /**
@@ -1156,10 +1171,14 @@ public final class BluetoothHeadset implements BluetoothProfile {
 
         @Override
         public void onServiceDisconnected(ComponentName className) {
-            if (DBG) Log.d(TAG, "Proxy object disconnected");
-            mService = null;
-            mHandler.sendMessage(mHandler.obtainMessage(
-                    MESSAGE_HEADSET_SERVICE_DISCONNECTED));
+            synchronized (mAdapter) {
+                if (mService != null) {
+                    if (DBG) Log.d(TAG, "Proxy object disconnected");
+                    mService = null;
+                    mHandler.sendMessage(mHandler.obtainMessage(
+                            MESSAGE_HEADSET_SERVICE_DISCONNECTED));
+                }
+            }
         }
     };
 

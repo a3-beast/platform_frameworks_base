@@ -87,6 +87,8 @@ import com.android.internal.util.XmlUtils;
 import com.android.server.am.BatteryStatsService;
 import com.android.server.net.NetworkPolicyManagerInternal;
 
+import com.mediatek.server.MtkDataShaping;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -1055,6 +1057,9 @@ public class DeviceIdleController extends SystemService
                         lightChanged = mLocalPowerManager.setLightDeviceIdleMode(true);
                     }
                     try {
+                        ///M: integrate Doze and App Standby @{
+                        MtkDataShaping.setDeviceIdleMode(true);
+                        /// integrate Doze and App Standby @}
                         mNetworkPolicyManager.setDeviceIdleMode(true);
                         mBatteryStats.noteDeviceIdleMode(msg.what == MSG_REPORT_IDLE_ON
                                 ? BatteryStats.DEVICE_IDLE_MODE_DEEP
@@ -1105,6 +1110,9 @@ public class DeviceIdleController extends SystemService
                     final boolean deepChanged = mLocalPowerManager.setDeviceIdleMode(false);
                     final boolean lightChanged = mLocalPowerManager.setLightDeviceIdleMode(false);
                     try {
+                        ///M: integrate Doze and App Standby @{
+                        MtkDataShaping.setDeviceIdleMode(false);
+                        /// integrate Doze and App Standby @}
                         mNetworkPolicyManager.setDeviceIdleMode(false);
                         mBatteryStats.noteDeviceIdleMode(BatteryStats.DEVICE_IDLE_MODE_OFF,
                                 activeReason, activeUid);

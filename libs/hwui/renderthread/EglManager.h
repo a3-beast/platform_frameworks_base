@@ -60,6 +60,9 @@ public:
 
     void fence();
 
+    /// M: Check whether surface is valid or not.
+    bool isSurfaceValid(EGLSurface surface);
+
 private:
     friend class RenderThread;
     explicit EglManager(RenderThread& thread);

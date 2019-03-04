@@ -186,7 +186,7 @@ public final class BitmapRegionDecoder {
      */
     public Bitmap decodeRegion(Rect rect, BitmapFactory.Options options) {
         BitmapFactory.Options.validate(options);
-        synchronized (mNativeLock) {
+        /* synchronized (mNativeLock)remove for multi-thread support */  {
             checkRecycled("decodeRegion called on recycled region decoder");
             if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= getWidth()
                     || rect.top >= getHeight())

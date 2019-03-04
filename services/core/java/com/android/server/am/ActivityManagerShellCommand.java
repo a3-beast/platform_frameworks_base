@@ -558,6 +558,9 @@ final class ActivityManagerShellCommand extends ShellCommand {
                 if (result.who != null) {
                     pw.println("Activity: " + result.who.flattenToShortString());
                 }
+                if (result.thisTime >= 0) {
+                    pw.println("ThisTime: " + result.thisTime);
+                }
                 if (result.totalTime >= 0) {
                     pw.println("TotalTime: " + result.totalTime);
                 }
@@ -636,6 +639,7 @@ final class ActivityManagerShellCommand extends ShellCommand {
     final static class IntentReceiver extends IIntentReceiver.Stub {
         private final PrintWriter mPw;
         private boolean mFinished = false;
+        private static final int WAIT_TIMEOUT = 60 * 1000;
 
         IntentReceiver(PrintWriter pw) {
             mPw = pw;
@@ -657,7 +661,13 @@ final class ActivityManagerShellCommand extends ShellCommand {
 
         public synchronized void waitForFinish() {
             try {
-                while (!mFinished) wait();
+                if (!mFinished) {
+                    wait(WAIT_TIMEOUT);
+                }
+                if (!mFinished) {
+                    mPw.println("Broadcast wait for finish timeout");
+                    mPw.flush();
+                }
             } catch (InterruptedException e) {
                 throw new IllegalStateException(e);
             }
@@ -2841,7 +2851,6 @@ final class ActivityManagerShellCommand extends ShellCommand {
             pw.println("  --checkin: output checkin format, resetting data.");
             pw.println("  --C: output checkin format, not resetting data.");
             pw.println("  --proto: output dump in protocol buffer format.");
-            pw.println("  --autofill: dump just the autofill-related state of an activity");
         } else {
             pw.println("Activity manager (activity) commands:");
             pw.println("  help");

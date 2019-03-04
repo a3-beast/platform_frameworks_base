@@ -50,6 +50,7 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.telephony.CellIdentityCdma;
@@ -74,6 +75,9 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.server.connectivity.DnsManager.PrivateDnsConfig;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
@@ -96,7 +100,7 @@ import java.util.concurrent.TimeUnit;
 public class NetworkMonitor extends StateMachine {
     private static final String TAG = NetworkMonitor.class.getSimpleName();
     private static final boolean DBG  = true;
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = true;
 
     // Default configuration values for captive portal detection probes.
     // TODO: append a random length parameter to the default HTTPS url.
@@ -107,10 +111,12 @@ public class NetworkMonitor extends StateMachine {
     private static final String DEFAULT_FALLBACK_URL  = "http://www.google.com/gen_204";
     private static final String DEFAULT_OTHER_FALLBACK_URLS =
             "http://play.googleapis.com/generate_204";
+    private static final String FALLBACK_URL_FOR_CHINA = "http://developers.google.cn/generate_204";
     private static final String DEFAULT_USER_AGENT    = "Mozilla/5.0 (X11; Linux x86_64) "
                                                       + "AppleWebKit/537.36 (KHTML, like Gecko) "
                                                       + "Chrome/60.0.3112.32 Safari/537.36";
 
+    private static final String SECONDARY_HTTP_URL = "http://captive.apple.com";
     private static final int SOCKET_TIMEOUT_MS = 10000;
     private static final int PROBE_TIMEOUT_MS  = 3000;
 
@@ -626,6 +632,14 @@ public class NetworkMonitor extends StateMachine {
                         transitionTo(mValidatedState);
                         return HANDLED;
                     }
+                    /** M: Do not enable validation during the testing @{*/
+                    if (SystemProperties.getInt("vendor.gsm.sim.ril.testsim", 0) == 1 ||
+                            SystemProperties.getInt("vendor.gsm.sim.ril.testsim.2", 0) == 1) {
+                        log("test sim enabled, make it validated directly");
+                        transitionTo(mValidatedState);
+                        return HANDLED;
+                    }
+                    /** @} */
                     mAttempts++;
                     // Note: This call to isCaptivePortal() could take up to a minute. Resolving the
                     // server's IP addresses could hit the DNS timeout, and attempting connections
@@ -872,7 +886,8 @@ public class NetworkMonitor extends StateMachine {
     }
 
     public boolean getUseHttpsValidation() {
-        return mSettings.getSetting(mContext, Settings.Global.CAPTIVE_PORTAL_USE_HTTPS, 1) == 1;
+        //M: avoid uses https in default
+        return mSettings.getSetting(mContext, Settings.Global.CAPTIVE_PORTAL_USE_HTTPS, 0) == 1;
     }
 
     public boolean getWifiScansAlwaysAvailableDisabled() {
@@ -892,7 +907,7 @@ public class NetworkMonitor extends StateMachine {
     public static String getCaptivePortalServerHttpUrl(
             NetworkMonitorSettings settings, Context context) {
         return settings.getSetting(
-                context, Settings.Global.CAPTIVE_PORTAL_HTTP_URL, DEFAULT_HTTP_URL);
+                context, Settings.Global.CAPTIVE_PORTAL_HTTP_URL, SECONDARY_HTTP_URL);
     }
 
     private URL[] makeCaptivePortalFallbackUrls() {
@@ -1031,8 +1046,27 @@ public class NetworkMonitor extends StateMachine {
         // Only do this if HttpURLConnection is about to, to avoid any potentially
         // unnecessary resolution.
         final String host = (proxy != null) ? proxy.getHost() : url.getHost();
+        CaptivePortalProbeResult result;
         sendDnsProbe(host);
-        return sendHttpProbe(url, probeType, null);
+        result = sendHttpProbe(url, probeType, null);
+        //M: use cn server for first priority fallback
+        //TODO: remove SECONDARY_HTTP_URL if the server is working for all CNOP
+        if (result.isFailed()) {
+            validationLog("trying to use fallback URL(1)");
+            URL fallbackUrl = makeURL(FALLBACK_URL_FOR_CHINA);
+            if (fallbackUrl != null) {
+                result = sendHttpProbe(fallbackUrl, ValidationProbeEvent.PROBE_HTTP, null);
+            }
+        }
+        //M: add fallback for wwop in http case
+        if (result.isFailed()) {
+            validationLog("trying to use fallback URL(2)");
+            URL fallbackUrl = nextFallbackUrl();
+            if (fallbackUrl != null) {
+                result = sendHttpProbe(fallbackUrl, ValidationProbeEvent.PROBE_FALLBACK, null);
+            }
+        }
+        return result;
     }
 
     /** Do a DNS resolution of the given server. */
@@ -1087,6 +1121,9 @@ public class NetworkMonitor extends StateMachine {
             // cannot read request header after connection
             String requestHeader = urlConnection.getRequestProperties().toString();
 
+            ///M: Disable connection keep alive in default.
+            urlConnection.setRequestProperty("Connection","Close");
+
             // Time how long it takes to get a response to our request
             long requestTimestamp = SystemClock.elapsedRealtime();
 
@@ -1129,11 +1166,38 @@ public class NetworkMonitor extends StateMachine {
                     }
                 }
             }
+
+            /** M: using another captive server @{*/
+            String contentType = urlConnection.getContentType();
+            if (contentType == null) {
+                log("contentType is null, httpResponseCode = " + httpResponseCode);
+            } else if (contentType.contains("text/html")) {
+                InputStreamReader in = new InputStreamReader(
+                        (InputStream) urlConnection.getContent());
+                BufferedReader buff = new BufferedReader(in);
+                String line = buff.readLine();
+                validationLog("urlConnection.getContent() = " + line);
+                if (httpResponseCode == 200 && line == null) {
+                    httpResponseCode = 204;
+                    log("Internet detected!");
+                } else if (httpResponseCode == 200 && line.contains("Success")) {
+                    httpResponseCode = 204;
+                    log("Internet detected!");
+                }  else if (httpResponseCode == 200
+                        && mNetworkAgentInfo.networkInfo.getType()
+                                == ConnectivityManager.TYPE_MOBILE) {
+                    httpResponseCode = 204;
+                    log("Internet detected!");
+                }
+            }
+            /* @}*/
         } catch (IOException e) {
             validationLog(probeType, url, "Probe failed with exception " + e);
             if (httpResponseCode == CaptivePortalProbeResult.FAILED_CODE) {
                 // TODO: Ping gateway and DNS server and log results.
             }
+        } catch (Exception ee) {
+            validationLog(probeType, url, "Probably not a portal: exception " + ee);
         } finally {
             if (urlConnection != null) {
                 urlConnection.disconnect();

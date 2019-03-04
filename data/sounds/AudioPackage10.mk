@@ -66,3 +66,8 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/ringtones/ogg/Solarium.ogg:system/media/audio/ringtones/Solarium.ogg \
 	$(LOCAL_PATH)/ringtones/ogg/Themos.ogg:system/media/audio/ringtones/Themos.ogg \
 	$(LOCAL_PATH)/ringtones/ogg/Zeta.ogg:system/media/audio/ringtones/Zeta.ogg
+
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/material/ogg/VideoStop_48k.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--

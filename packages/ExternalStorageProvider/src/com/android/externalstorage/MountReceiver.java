@@ -21,11 +21,20 @@ import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 
+import android.util.Log;
+
 public class MountReceiver extends BroadcastReceiver {
+
+    private static final String TAG = "MountReceiver";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         final ContentProviderClient client = context.getContentResolver()
                 .acquireContentProviderClient(ExternalStorageProvider.AUTHORITY);
+        if (client == null) {
+            Log.d(TAG, "MountReceiver : onReceive client is null");
+            return;
+        }
         try {
             ((ExternalStorageProvider) client.getLocalContentProvider()).updateVolumes();
         } finally {

@@ -20,7 +20,6 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.text.style.ParagraphStyle;
-
 /**
  * A BoringLayout is a very simple Layout implementation for text that
  * fits on a single line and is all left-to-right characters.

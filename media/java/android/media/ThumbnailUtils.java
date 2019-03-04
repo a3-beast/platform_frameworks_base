@@ -33,6 +33,8 @@ import java.io.FileInputStream;
 import java.io.FileDescriptor;
 import java.io.IOException;
 
+import com.mediatek.media.MediaFactory;
+
 /**
  * Thumbnail generation routines for media provider.
  */
@@ -118,6 +120,10 @@ public class ThumbnailUtils {
                 options.inSampleSize = computeSampleSize(
                         options, targetSize, maxPixels);
                 options.inJustDecodeBounds = false;
+
+                /// M: correct options attribute in some case @{
+                MediaFactory.getInstance().getThumbnailUtilsEx().correctOptions(filePath, options);
+                /// @}
 
                 options.inDither = false;
                 options.inPreferredConfig = Bitmap.Config.ARGB_8888;

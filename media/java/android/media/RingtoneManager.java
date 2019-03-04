@@ -48,6 +48,8 @@ import android.provider.Settings.System;
 import android.util.Log;
 
 import com.android.internal.database.SortCursor;
+import com.mediatek.media.MediaFactory;
+import com.mediatek.media.ringtone.RingtoneManagerEx;
 
 import java.io.Closeable;
 import java.io.File;
@@ -258,6 +260,11 @@ public class RingtoneManager {
     private Ringtone mPreviousRingtone;
 
     private boolean mIncludeParentRingtones;
+
+    /// M: add more video file type @{
+    private RingtoneManagerEx mRingtomeManagerEx =
+            MediaFactory.getInstance().getRingtoneManagerEx();
+    /// @}
 
     /**
      * Constructs a RingtoneManager. This constructor is recommended as its
@@ -605,7 +612,8 @@ public class RingtoneManager {
     private Cursor getInternalRingtones() {
         return query(
                 MediaStore.Audio.Media.INTERNAL_CONTENT_URI, INTERNAL_COLUMNS,
-                constructBooleanTrueWhereClause(mFilterColumns),
+                constructBooleanTrueWhereClause(mFilterColumns)
+                        + mRingtomeManagerEx.appendDrmToWhereClause(mActivity),
                 null, MediaStore.Audio.Media.DEFAULT_SORT_ORDER);
     }
 
@@ -626,9 +634,11 @@ public class RingtoneManager {
         return (status.equals(Environment.MEDIA_MOUNTED) ||
                     status.equals(Environment.MEDIA_MOUNTED_READ_ONLY))
                 ? query(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, MEDIA_COLUMNS,
-                    constructBooleanTrueWhereClause(mFilterColumns), null,
-                    MediaStore.Audio.Media.DEFAULT_SORT_ORDER, context)
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                    mRingtomeManagerEx.getMtkMediaColumns(),
+                    constructBooleanTrueWhereClause(mFilterColumns)
+                            + mRingtomeManagerEx.appendDrmToWhereClause(mActivity),
+                    null, MediaStore.Audio.Media.DEFAULT_SORT_ORDER)
                 : null;
     }
     
@@ -692,12 +702,8 @@ public class RingtoneManager {
             String[] selectionArgs,
             String sortOrder,
             Context context) {
-        if (mActivity != null) {
-            return mActivity.managedQuery(uri, projection, selection, selectionArgs, sortOrder);
-        } else {
-            return context.getContentResolver().query(uri, projection, selection, selectionArgs,
+        return context.getContentResolver().query(uri, projection, selection, selectionArgs,
                     sortOrder);
-        }
     }
     
     /**
@@ -945,6 +951,7 @@ public class RingtoneManager {
             throw new IllegalArgumentException("Ringtone file must have MIME type \"audio/*\"."
                     + " Given file has MIME type \"" + mimeType + "\"");
         }
+        mRingtomeManagerEx.preFilterDrmFilesForFlType(mContext, fileUri);
 
         // Choose a directory to save the ringtone. Only one type of installation at a time is
         // allowed. Throws IllegalArgumentException if anything else is given.

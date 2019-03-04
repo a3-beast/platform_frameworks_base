@@ -27,6 +27,7 @@ import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_KEYGUARD;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 
+import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_BOOT;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_DRAG;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_FOCUS_LIGHT;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_INPUT;
@@ -40,7 +41,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
-import android.os.Trace;
 import android.os.UserHandle;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -584,7 +584,8 @@ final class InputMonitor implements InputManagerService.WindowManagerCallbacks {
 
     public void setEventDispatchingLw(boolean enabled) {
         if (mInputDispatchEnabled != enabled) {
-            if (DEBUG_INPUT) {
+            /// M: Add more log at WMS
+            if (DEBUG_INPUT || DEBUG_BOOT) {
                 Slog.v(TAG_WM, "Setting event dispatching to " + enabled);
             }
 
@@ -621,8 +622,6 @@ final class InputMonitor implements InputManagerService.WindowManagerCallbacks {
 
         private void updateInputWindows(boolean inDrag) {
 
-            Trace.traceBegin(Trace.TRACE_TAG_WINDOW_MANAGER, "updateInputWindows");
-
             // TODO: multi-display
             navInputConsumer = getInputConsumer(INPUT_CONSUMER_NAVIGATION, DEFAULT_DISPLAY);
             pipInputConsumer = getInputConsumer(INPUT_CONSUMER_PIP, DEFAULT_DISPLAY);
@@ -648,8 +647,6 @@ final class InputMonitor implements InputManagerService.WindowManagerCallbacks {
             mService.mInputManager.setInputWindows(mInputWindowHandles, mFocusedInputWindowHandle);
 
             clearInputWindowHandlesLw();
-
-            Trace.traceEnd(Trace.TRACE_TAG_WINDOW_MANAGER);
         }
 
         @Override

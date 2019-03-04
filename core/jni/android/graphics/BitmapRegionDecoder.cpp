@@ -118,6 +118,8 @@ static jobject nativeNewInstanceFromAsset(JNIEnv* env, jobject clazz,
     return brd;
 }
 
+static SkMutex gRegionDecodeMutex;
+
 /*
  * nine patch not supported
  * purgeable not supported
@@ -186,9 +188,14 @@ static jobject nativeDecodeRegion(JNIEnv* env, jobject, jlong brdHandle, jint in
 
     // Decode the region.
     SkIRect subset = SkIRect::MakeXYWH(inputX, inputY, inputWidth, inputHeight);
+
+	// add mutex to avoid multi-thread region decode for codec other than jpeg
+	gRegionDecodeMutex.acquire();
+
     SkBitmap bitmap;
     if (!brd->decodeRegion(&bitmap, allocator, subset, sampleSize,
             decodeColorType, requireUnpremul, decodeColorSpace)) {
+		gRegionDecodeMutex.release();
         return nullObjectReturn("Failed to decode region.");
     }
 
@@ -200,6 +207,7 @@ static jobject nativeDecodeRegion(JNIEnv* env, jobject, jlong brdHandle, jint in
         env->SetObjectField(options, gOptions_mimeFieldID,
                 encodedFormatToString(env, (SkEncodedImageFormat)brd->getEncodedFormat()));
         if (env->ExceptionCheck()) {
+			gRegionDecodeMutex.release();
             return nullObjectReturn("OOM in encodedFormatToString()");
         }
 
@@ -219,8 +227,11 @@ static jobject nativeDecodeRegion(JNIEnv* env, jobject, jlong brdHandle, jint in
     if (javaBitmap) {
         recycleAlloc.copyIfNecessary();
         bitmap::reinitBitmap(env, javaBitmap, recycledBitmap->info(), !requireUnpremul);
+		gRegionDecodeMutex.release();
         return javaBitmap;
     }
+
+	gRegionDecodeMutex.release();
 
     int bitmapCreateFlags = 0;
     if (!requireUnpremul) {

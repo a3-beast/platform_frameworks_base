@@ -199,6 +199,8 @@ void CanvasContext::setSurface(sp<Surface>&& surface) {
     } else {
         mRenderThread.removeFrameCallback(this);
         mGenerationID++;
+        /// M: Set surface to null if createSurface failed
+        mNativeSurface = nullptr;
     }
 }
 

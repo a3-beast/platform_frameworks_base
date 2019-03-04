@@ -18,9 +18,9 @@ package com.android.server.wm;
 
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 import static android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER;
+
 import static android.view.WindowManager.TRANSIT_DOCK_TASK_FROM_RECENTS;
 import static android.view.WindowManager.TRANSIT_UNSET;
-
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_ADD_REMOVE;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_APP_TRANSITIONS;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_ORIENTATION;
@@ -42,6 +42,10 @@ import android.view.IApplicationToken;
 import android.view.RemoteAnimationDefinition;
 import android.view.WindowManager;
 
+/// M: WindowManager debug Mechanism
+import com.mediatek.server.wm.WindowManagerDebugger;
+import com.mediatek.server.MtkSystemServiceFactory;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.AttributeCache;
 import com.android.server.policy.WindowManagerPolicy.StartingSurface;
@@ -59,13 +63,16 @@ public class AppWindowContainerController
     private static final int STARTING_WINDOW_TYPE_SNAPSHOT = 1;
     private static final int STARTING_WINDOW_TYPE_SPLASH_SCREEN = 2;
 
-    private final IApplicationToken mToken;
+    private IApplicationToken mToken;
     private final Handler mHandler;
+
+    /// M: Add WindowManager debug Mechanism
+    private WindowManagerDebugger mWindowManagerDebugger =
+                    MtkSystemServiceFactory.getInstance().makeWindowManagerDebugger();
 
     private final class H extends Handler {
         public static final int NOTIFY_WINDOWS_DRAWN = 1;
         public static final int NOTIFY_STARTING_WINDOW_DRAWN = 2;
-        public static final int NOTIFY_WINDOWS_NOTDRAWN = 3;
 
         public H(Looper looper) {
             super(looper);
@@ -86,17 +93,14 @@ public class AppWindowContainerController
                     if (mListener == null) {
                         return;
                     }
+                    /// M: Modify log fot test tool @{
+                    //if (DEBUG_VISIBILITY) Slog.v(TAG_WM, "Reporting drawn in "
+                    //        + AppWindowContainerController.this.mToken);
                     if (DEBUG_VISIBILITY) Slog.v(TAG_WM, "Reporting starting window drawn in "
                             + AppWindowContainerController.this.mToken);
+                    /// @}
+
                     mListener.onStartingWindowDrawn(msg.getWhen());
-                    break;
-                case NOTIFY_WINDOWS_NOTDRAWN:
-                    if (mListener == null) {
-                        return;
-                    }
-                    if (DEBUG_VISIBILITY) Slog.v(TAG_WM, "Reporting undrawn in "
-                            + AppWindowContainerController.this.mToken);
-                    mListener.onWindowsNotDrawn(msg.getWhen());
                     break;
                 default:
                     break;
@@ -133,6 +137,12 @@ public class AppWindowContainerController
                 if (mContainer == null) {
                     if (DEBUG_STARTING_WINDOW) Slog.v(TAG_WM, "mContainer was null while trying to"
                             + " add starting window");
+                    return;
+                }
+
+                ///M: Check starting surface aleady add or not.
+                if (mContainer.startingSurface != null) {
+                    Slog.v(TAG_WM, "already has a starting surface!!!");
                     return;
                 }
 
@@ -298,6 +308,10 @@ public class AppWindowContainerController
             mContainer.setOrientation(requestedOrientation);
 
             final IBinder binder = freezeScreenIfNeeded ? mToken.asBinder() : null;
+            /// M: Add more log at WMS
+            if (mWindowManagerDebugger.WMS_DEBUG_ENG) {
+                Slog.d(TAG_WM, "setAppOrientation to " + requestedOrientation + ", app:" + mToken);
+            }
             return mService.updateOrientationFromAppTokens(displayConfig, binder, displayId);
 
         }
@@ -352,7 +366,10 @@ public class AppWindowContainerController
                 return;
             }
 
-            if (DEBUG_APP_TRANSITIONS || DEBUG_ORIENTATION) Slog.v(TAG_WM, "setAppVisibility("
+            /// M: Add more log at WMS
+            if (DEBUG_APP_TRANSITIONS || DEBUG_ORIENTATION
+                        || mWindowManagerDebugger.WMS_DEBUG_ENG)
+                    Slog.v(TAG_WM, "setAppVisibility("
                     + mToken + ", visible=" + visible + "): " + mService.mAppTransition
                     + " hidden=" + wtoken.isHidden() + " hiddenRequested="
                     + wtoken.hiddenRequested + " Callers=" + Debug.getCallers(6));
@@ -747,10 +764,6 @@ public class AppWindowContainerController
 
     void reportWindowsDrawn() {
         mHandler.sendMessage(mHandler.obtainMessage(H.NOTIFY_WINDOWS_DRAWN));
-    }
-
-    void reportWindowsNotDrawn() {
-        mHandler.sendMessage(mHandler.obtainMessage(H.NOTIFY_WINDOWS_NOTDRAWN));
     }
 
     void reportWindowsVisible() {

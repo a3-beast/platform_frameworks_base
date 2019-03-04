@@ -324,7 +324,7 @@ public class DisconnectCause {
     //*********************************************************************************************
 
     /** Private constructor to avoid class instantiation. */
-    private DisconnectCause() {
+    protected DisconnectCause() {
         // Do nothing.
     }
 

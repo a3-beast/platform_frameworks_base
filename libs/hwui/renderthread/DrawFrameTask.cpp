@@ -24,6 +24,9 @@
 #include "../RenderNode.h"
 #include "CanvasContext.h"
 #include "RenderThread.h"
+/// M:FPSGO notify @{
+#include "mediatek/MTKFrameBudgetIndicator.h"
+/// @}
 
 namespace android {
 namespace uirenderer {
@@ -119,6 +122,9 @@ void DrawFrameTask::run() {
     } else {
         // wait on fences so tasks don't overlap next frame
         context->waitOnFences();
+        /// M:FPSGO notify @{
+        notifyNoRender(mFrameInfo[static_cast<int>(FrameInfoIndex::IntendedVsync)]);
+        /// @}
     }
 
     if (!canUnblockUiThread) {

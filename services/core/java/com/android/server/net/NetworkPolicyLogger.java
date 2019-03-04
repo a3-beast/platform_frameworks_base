@@ -27,6 +27,7 @@ import static android.net.NetworkPolicyManager.FIREWALL_RULE_DENY;
 
 import android.app.ActivityManager;
 import android.net.NetworkPolicyManager;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.Slog;
 
@@ -41,9 +42,11 @@ import java.util.Set;
 
 public class NetworkPolicyLogger {
     static final String TAG = "NetworkPolicy";
-
-    static final boolean LOGD = Log.isLoggable(TAG, Log.DEBUG);
-    static final boolean LOGV = Log.isLoggable(TAG, Log.VERBOSE);
+    static final String PROP_FORCE_DEBUG_KEY = "persist.vendor.log.tel_dbg";
+    static final boolean LOGD = Log.isLoggable(TAG, Log.DEBUG)
+        ||(SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
+    static final boolean LOGV = Log.isLoggable(TAG, Log.VERBOSE)
+        ||(SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
 
     private static final int MAX_LOG_SIZE =
             ActivityManager.isLowRamDeviceStatic() ? 20 : 50;

@@ -963,9 +963,16 @@ final class BinderProxy implements IBinder {
             Map<String, Integer> counts = new HashMap<>();
             for (ArrayList<WeakReference<BinderProxy>> a : mMainIndexValues) {
                 if (a != null) {
+                    int count = 0;
+                    int DumpThreshold = (int) Math.floor(a.size() * 0.9);
                     for (WeakReference<BinderProxy> weakRef : a) {
                         BinderProxy bp = weakRef.get();
                         String key;
+                        // we only dump the last 10 percentage of BinderProxy.
+                        if (count < DumpThreshold) {
+                            count++;
+                            continue;
+                        }
                         if (bp == null) {
                             key = "<cleared weak-ref>";
                         } else {
@@ -988,6 +995,7 @@ final class BinderProxy implements IBinder {
                     new Map.Entry[counts.size()]);
             Arrays.sort(sorted, (Map.Entry<String, Integer> a, Map.Entry<String, Integer> b)
                     -> b.getValue().compareTo(a.getValue()));
+            Log.v(Binder.TAG, "Dump the last 10 percentage of BinderProxy");
             Log.v(Binder.TAG, "BinderProxy descriptor histogram (top ten):");
             int printLength = Math.min(10, sorted.length);
             for (int i = 0; i < printLength; i++) {

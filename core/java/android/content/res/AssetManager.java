@@ -59,6 +59,9 @@ public final class AssetManager implements AutoCloseable {
     private static final boolean DEBUG_REFS = false;
 
     private static final String FRAMEWORK_APK_PATH = "/system/framework/framework-res.apk";
+    ///M: for load mediatek-res
+    private static final String MEDIATEK_APK_PATH =
+        "/system/framework/mediatek-res/mediatek-res.apk";
 
     private static final Object sSync = new Object();
 
@@ -198,6 +201,8 @@ public final class AssetManager implements AutoCloseable {
             final ArrayList<ApkAssets> apkAssets = new ArrayList<>();
             apkAssets.add(ApkAssets.loadFromPath(FRAMEWORK_APK_PATH, true /*system*/));
             loadStaticRuntimeOverlays(apkAssets);
+            ///M: for load mediatek-res
+            apkAssets.add(ApkAssets.loadFromPath(MEDIATEK_APK_PATH, true /*system*/));
 
             sSystemApkAssetsSet = new ArraySet<>(apkAssets);
             sSystemApkAssets = apkAssets.toArray(new ApkAssets[apkAssets.size()]);

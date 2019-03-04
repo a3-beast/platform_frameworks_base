@@ -360,7 +360,6 @@ class TaskSnapshotPersister {
 
             // For snapshots with reduced resolution, do not create or save full sized bitmaps
             if (mSnapshot.isReducedResolution()) {
-                swBitmap.recycle();
                 return true;
             }
 
@@ -373,8 +372,6 @@ class TaskSnapshotPersister {
                 Slog.e(TAG, "Unable to open " + file + " for persisting.", e);
                 return false;
             }
-            reduced.recycle();
-            swBitmap.recycle();
             return true;
         }
     }
@@ -402,7 +399,11 @@ class TaskSnapshotPersister {
         @VisibleForTesting
         RemoveObsoleteFilesQueueItem(ArraySet<Integer> persistentTaskIds,
                 int[] runningUserIds) {
-            mPersistentTaskIds = persistentTaskIds;
+            /// M: Use a copy to save the Arrayset, or else, it maybe clear in AMS
+            /// (TaskPersister.LazyTaskWriterThread.run()) @{
+            //mPersistentTaskIds = persistentTaskIds;
+            mPersistentTaskIds = new ArraySet<>(persistentTaskIds);
+            /// @}
             mRunningUserIds = runningUserIds;
         }
 

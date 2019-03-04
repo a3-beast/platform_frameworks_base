@@ -196,7 +196,7 @@ public class BarController {
     }
 
     protected boolean skipAnimation() {
-        return !mWin.isDrawnLw();
+        return false;
     }
 
     private int computeStateLw(boolean wasVis, boolean wasAnim, WindowState win, boolean change) {

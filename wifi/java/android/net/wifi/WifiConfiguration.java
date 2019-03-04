@@ -123,10 +123,23 @@ public class WifiConfiguration implements Parcelable {
          */
         public static final int FT_EAP = 7;
 
+        ///M: [WAPI] @{
+        /**
+         * WAPI with pre-shared key.
+         * @hide
+         */
+        public static final int WAPI_PSK = 8;
+        /**
+         * WAPI with certificate authentication.
+         * @hide
+         */
+        public static final int WAPI_CERT = 9;
+        /// }@
+
         public static final String varName = "key_mgmt";
 
         public static final String[] strings = { "NONE", "WPA_PSK", "WPA_EAP",
-                "IEEE8021X", "WPA2_PSK", "OSEN", "FT_PSK", "FT_EAP" };
+                "IEEE8021X", "WPA2_PSK", "OSEN", "FT_PSK", "FT_EAP", "WAPI_PSK", "WAPI_CERT" };
     }
 
     /**
@@ -146,10 +159,16 @@ public class WifiConfiguration implements Parcelable {
          * @hide
          */
         public static final int OSEN = 2;
+        /**
+         * For WAPI.
+         * @hide
+         * @internal
+         */
+        public static final int WAPI = 3;
 
         public static final String varName = "proto";
 
-        public static final String[] strings = { "WPA", "RSN", "OSEN" };
+        public static final String[] strings = { "WPA", "RSN", "OSEN", "WAPI" };
     }
 
     /**
@@ -328,10 +347,9 @@ public class WifiConfiguration implements Parcelable {
     public String preSharedKey;
 
     /**
-     * Four WEP keys. For each of the four values, provide either an ASCII
-     * string enclosed in double quotation marks (e.g., {@code "abcdef"}),
-     * a string of hex digits (e.g., {@code 0102030405}), or an empty string
-     * (e.g., {@code ""}).
+     * Up to four WEP keys. Either an ASCII string enclosed in double
+     * quotation marks (e.g., {@code "abcdef"}) or a string
+     * of hex digits (e.g., {@code 0102030405}).
      * <p/>
      * When the value of one of these keys is read, the actual key is
      * not returned, just a "*" if the key has a value, or the null
@@ -504,7 +522,7 @@ public class WifiConfiguration implements Parcelable {
     /**
      * @hide
      * Universal name for app creating the configuration
-     *    see {@link PackageManager#getNameForUid(int)}
+     *    see {#link {@link PackageManager#getNameForUid(int)}
      */
     @SystemApi
     public String creatorName;
@@ -512,7 +530,7 @@ public class WifiConfiguration implements Parcelable {
     /**
      * @hide
      * Universal name for app updating the configuration
-     *    see {@link PackageManager#getNameForUid(int)}
+     *    see {#link {@link PackageManager#getNameForUid(int)}
      */
     @SystemApi
     public String lastUpdateName;
@@ -1495,6 +1513,31 @@ public class WifiConfiguration implements Parcelable {
      */
     public HashMap<String, Integer>  linkedConfigurations;
 
+    ///M: [WAPI] @{
+    /**
+     * Selection mode for WAPI-CERT
+     * 0:Auto select, 1:User select
+     * @hide
+     */
+    public int wapiCertSelMode;
+    /**
+     * Alias for auto choose wapi certificate
+     * @hide
+     */
+    public String wapiCertSel;
+    /**
+     * Type of preshared key for WAPI-PSK
+     * 0:ASCII, 1:HEX
+     * @hide
+     */
+    public int wapiPskType;
+    /**
+     * Preshared key for WAPI-PSK
+     * @hide
+     */
+    public String wapiPsk;
+    /// }@
+
     public WifiConfiguration() {
         networkId = INVALID_NETWORK_ID;
         SSID = null;
@@ -1853,6 +1896,11 @@ public class WifiConfiguration implements Parcelable {
             return KeyMgmt.WPA_EAP;
         } else if (allowedKeyManagement.get(KeyMgmt.IEEE8021X)) {
             return KeyMgmt.IEEE8021X;
+        ///M: [WAPI]
+        } else if (allowedKeyManagement.get(KeyMgmt.WAPI_PSK)) {
+            return KeyMgmt.WAPI_PSK;
+        } else if (allowedKeyManagement.get(KeyMgmt.WAPI_CERT)) {
+            return KeyMgmt.WAPI_CERT;
         }
         return KeyMgmt.NONE;
     }
@@ -1884,6 +1932,11 @@ public class WifiConfiguration implements Parcelable {
                 key = SSID + KeyMgmt.strings[KeyMgmt.WPA_EAP];
             } else if (wepKeys[0] != null) {
                 key = SSID + "WEP";
+            ///M: [WAPI]
+            } else if (allowedKeyManagement.get(KeyMgmt.WAPI_PSK)) {
+                key = SSID + KeyMgmt.strings[KeyMgmt.WAPI_PSK];
+            } else if (allowedKeyManagement.get(KeyMgmt.WAPI_CERT)) {
+                key = SSID + KeyMgmt.strings[KeyMgmt.WAPI_CERT];
             } else {
                 key = SSID + KeyMgmt.strings[KeyMgmt.NONE];
             }
@@ -2083,6 +2136,12 @@ public class WifiConfiguration implements Parcelable {
             shared = source.shared;
             recentFailure.setAssociationStatus(source.recentFailure.getAssociationStatus());
             mRandomizedMacAddress = source.mRandomizedMacAddress;
+            ///M: [WAPI] @{
+            wapiCertSelMode = source.wapiCertSelMode;
+            wapiCertSel = source.wapiCertSel;
+            wapiPskType = source.wapiPskType;
+            wapiPsk = source.wapiPsk;
+            /// }@
         }
     }
 
@@ -2147,6 +2206,12 @@ public class WifiConfiguration implements Parcelable {
         dest.writeString(mPasspointManagementObjectTree);
         dest.writeInt(recentFailure.getAssociationStatus());
         dest.writeParcelable(mRandomizedMacAddress, flags);
+        ///M: [WAPI] @{
+        dest.writeInt(wapiCertSelMode);
+        dest.writeString(wapiCertSel);
+        dest.writeInt(wapiPskType);
+        dest.writeString(wapiPsk);
+        /// }@
     }
 
     /** Implement the Parcelable interface {@hide} */
@@ -2212,6 +2277,12 @@ public class WifiConfiguration implements Parcelable {
                 config.mPasspointManagementObjectTree = in.readString();
                 config.recentFailure.setAssociationStatus(in.readInt());
                 config.mRandomizedMacAddress = in.readParcelable(null);
+                ///M: [WAPI] @{
+                config.wapiCertSelMode = in.readInt();
+                config.wapiCertSel = in.readString();
+                config.wapiPskType = in.readInt();
+                config.wapiPsk = in.readString();
+                /// }@
                 return config;
             }
 

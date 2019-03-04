@@ -34,6 +34,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.util.AttributeSet;
 import android.util.Log;
 
@@ -96,14 +97,20 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallback {
     private static final String TAG = "SurfaceView";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = SystemProperties.getBoolean(
+            "debug.surfaceview.log", false);
 
     final ArrayList<SurfaceHolder.Callback> mCallbacks
             = new ArrayList<SurfaceHolder.Callback>();
 
     final int[] mLocation = new int[2];
-
-    final ReentrantLock mSurfaceLock = new ReentrantLock();
+    // M:@{
+    // Main thread is intermittently blocked so long time by SurfaceView thread and
+    // got starved. That is the reason why SurfaceView holds the Non-fair lock and
+    // is doing much work at that time. To avoid this problem, this patch makes
+    // SurfaceView used Fair lock.
+    final ReentrantLock mSurfaceLock = new ReentrantLock(true);
+    // @}
     final Surface mSurface = new Surface();       // Current surface in use
     boolean mDrawingStopped = true;
     // We use this to track if the application has produced a frame
@@ -217,6 +224,10 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
     /** @hide */
     @Override
     public void windowStopped(boolean stopped) {
+        if (DEBUG) {
+            Log.i(TAG, "windowStopped,mWindowStopped:" + mWindowStopped
+                    + ",stopped:" + stopped);
+        }
         mWindowStopped = stopped;
         updateRequestedVisibility();
         updateSurface();
@@ -225,6 +236,9 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        if (DEBUG) {
+            Log.i(TAG, "onAttachedToWindow");
+        }
 
         getViewRootImpl().addWindowStoppedCallback(this);
         mWindowStopped = false;
@@ -300,6 +314,9 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
         // the SurfaceHolder forward, most live wallpapers do it.
         if (viewRoot != null) {
             viewRoot.removeWindowStoppedCallback(this);
+        }
+        if (DEBUG) {
+            Log.i(TAG, "onDetachedFromWindow");
         }
 
         mAttachedToWindow = false;
@@ -1086,6 +1103,10 @@ public class SurfaceView extends View implements ViewRootImpl.WindowStoppedCallb
          */
         @Override
         public void unlockCanvasAndPost(Canvas canvas) {
+            if (DEBUG) {
+                Log.i(TAG, System.identityHashCode(this) + "[unlockCanvasAndPost] canvas:"
+                        + canvas);
+            }
             mSurface.unlockCanvasAndPost(canvas);
             mSurfaceLock.unlock();
         }

@@ -64,6 +64,9 @@ import com.android.internal.util.Preconditions;
 import com.android.server.LocalServices;
 import com.android.server.SystemService;
 
+import com.mediatek.server.MtkSystemServiceFactory;
+import com.mediatek.server.pm.PmsExt;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -114,6 +117,9 @@ public class LauncherAppsService extends SystemService {
         private final MyPackageMonitor mPackageMonitor = new MyPackageMonitor();
 
         private final Handler mCallbackHandler;
+
+        /// M: Removable system app support
+        private PmsExt mPmsExt = MtkSystemServiceFactory.getInstance().makePmsExt();
 
         public LauncherAppsImpl(Context context) {
             mContext = context;
@@ -298,16 +304,22 @@ public class LauncherAppsService extends SystemService {
 
             final int callingUid = injectBinderCallingUid();
             long ident = Binder.clearCallingIdentity();
+            /// M: Removable system app support
+            ActivityInfo retInfo = null;
             try {
                 final PackageManagerInternal pmInt =
                         LocalServices.getService(PackageManagerInternal.class);
-                return pmInt.getActivityInfo(component,
+                retInfo = pmInt.getActivityInfo(component,
                         PackageManager.MATCH_DIRECT_BOOT_AWARE
                                 | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
                         callingUid, user.getIdentifier());
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
+            /// M: Removable system app support
+            // Update ApplicationInfo in ActivityInfo, clear FLAG_SYSTEM or not by calling UID
+            mPmsExt.updateActivityInfoForRemovable(retInfo);
+            return retInfo;
         }
 
         @Override
@@ -319,24 +331,30 @@ public class LauncherAppsService extends SystemService {
         }
 
         private ParceledListSlice<ResolveInfo> queryActivitiesForUser(String callingPackage,
-                Intent intent, UserHandle user) {
+                Intent intent, UserHandle user) throws RemoteException {
             if (!canAccessProfile(user.getIdentifier(), "Cannot retrieve activities")) {
                 return null;
             }
 
             final int callingUid = injectBinderCallingUid();
             long ident = injectClearCallingIdentity();
+            /// M: Removable system app support
+            List<ResolveInfo> apps;
             try {
                 final PackageManagerInternal pmInt =
                         LocalServices.getService(PackageManagerInternal.class);
-                List<ResolveInfo> apps = pmInt.queryIntentActivities(intent,
+                apps = pmInt.queryIntentActivities(intent,
                         PackageManager.MATCH_DIRECT_BOOT_AWARE
                                 | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
                         callingUid, user.getIdentifier());
-                return new ParceledListSlice<>(apps);
+                // return new ParceledListSlice<>(apps);
             } finally {
                 injectRestoreCallingIdentity(ident);
             }
+            /// M: Removable system app support
+            // Update ApplicationInfo in ResolveInfo, clear FLAG_SYSTEM or not by calling UID
+            mPmsExt.updateResolveInfoListForRemovable(apps);
+            return new ParceledListSlice<>(apps);
         }
 
         @Override
@@ -405,15 +423,23 @@ public class LauncherAppsService extends SystemService {
 
             final int callingUid = injectBinderCallingUid();
             long ident = Binder.clearCallingIdentity();
+            /// M: Removable system app support
+            ApplicationInfo info;
             try {
                 final PackageManagerInternal pmInt =
                         LocalServices.getService(PackageManagerInternal.class);
-                ApplicationInfo info = pmInt.getApplicationInfo(packageName, flags,
+                info = pmInt.getApplicationInfo(packageName, flags,
                         callingUid, user.getIdentifier());
-                return info;
+                // return info;
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
+            /// M: Removable system app support
+            // Update ApplicationInfo, clear FLAG_SYSTEM or not by calling UID
+            info = mPmsExt.updateApplicationInfoForRemovable(
+                    AppGlobals.getPackageManager().getNameForUid(Binder.getCallingUid()),
+                    info);
+            return info;
         }
 
         private void ensureShortcutPermission(@NonNull String callingPackage) {

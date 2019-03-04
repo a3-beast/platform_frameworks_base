@@ -30,6 +30,7 @@ import android.net.wifi.WifiInfo;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.DebugUtils;
+import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
 
@@ -46,7 +47,7 @@ import java.util.Iterator;
  */
 @SystemService(Context.NETWORK_POLICY_SERVICE)
 public class NetworkPolicyManager {
-
+    private static final String TAG = "NetworkPolicyManager";
     /* POLICY_* are masks and can be ORed, although currently they are not.*/
     /** No specific network policy, use system default. */
     public static final int POLICY_NONE = 0x0;
@@ -230,6 +231,7 @@ public class NetworkPolicyManager {
     }
 
     public void setRestrictBackground(boolean restrictBackground) {
+        Log.d(TAG, "setRestrictBackground " + restrictBackground);
         try {
             mService.setRestrictBackground(restrictBackground);
         } catch (RemoteException e) {

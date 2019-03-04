@@ -264,7 +264,10 @@ public class RouterAdvertisementDaemon {
 
     public void stop() {
         closeSocket();
-        mMulticastTransmitter = null;
+        if (mMulticastTransmitter != null) {
+            mMulticastTransmitter.hup();
+            mMulticastTransmitter = null;
+        }
         mUnicastResponder = null;
     }
 

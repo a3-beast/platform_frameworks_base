@@ -19,7 +19,6 @@ package com.android.server.wm;
 import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
-import static android.content.pm.ActivityInfo.COLOR_MODE_DEFAULT;
 import static android.content.pm.ActivityInfo.CONFIG_ORIENTATION;
 import static android.content.pm.ActivityInfo.CONFIG_SCREEN_SIZE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_BEHIND;
@@ -107,6 +106,11 @@ import com.android.server.input.InputApplicationHandle;
 import com.android.server.policy.WindowManagerPolicy.StartingSurface;
 import com.android.server.wm.WindowManagerService.H;
 
+/// M: add for fullscreen switch feature @{
+import com.mediatek.server.MtkSystemServiceFactory;
+import com.mediatek.server.wm.WmsExt;
+/// @}
+
 import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -118,7 +122,7 @@ class AppTokenList extends ArrayList<AppWindowToken> {
  * Version of WindowToken that is specifically for a particular application (or
  * really activity) that is displaying windows.
  */
-class AppWindowToken extends WindowToken implements WindowManagerService.AppFreezeListener {
+public class AppWindowToken extends WindowToken implements WindowManagerService.AppFreezeListener {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "AppWindowToken" : TAG_WM;
 
     /**
@@ -293,6 +297,12 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
         mVoiceInteraction = voiceInteraction;
         mFillsParent = fillsParent;
         mInputApplicationHandle = new InputApplicationHandle(this);
+
+        /// M: add for fullscreen switch feature @{
+        if (mWmsExt.isFullscreenSwitchSupport()) {
+            isFullscreenOn = mWmsExt.initFullscreenSwitchState(this.token);
+        }
+        /// @}
     }
 
     void onFirstWindowDrawn(WindowState win, WindowStateAnimator winAnimator) {
@@ -353,10 +363,6 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
             if (nowDrawn) {
                 if (controller != null) {
                     controller.reportWindowsDrawn();
-                }
-            } else {
-                if (controller != null) {
-                    controller.reportWindowsNotDrawn();
                 }
             }
             reportedDrawn = nowDrawn;
@@ -765,7 +771,7 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
         deferClearAllDrawn = false;
     }
 
-    Task getTask() {
+    public Task getTask() {
         return (Task) getParent();
     }
 
@@ -1199,6 +1205,16 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
             return false;
         }
 
+        /// M: Should remove the duplicate starting window @{
+        if (startingSurface != null || startingData != null) {
+            if (fromToken.getController() != null) {
+                Slog.v(TAG_WM, "transferStartingWindow,"
+                    + " fromToken already add a starting window.");
+                fromToken.getController().removeStartingWindow();
+            }
+        }
+        /// @}
+
         final WindowState tStartingWindow = fromToken.startingWindow;
         if (tStartingWindow != null && fromToken.startingSurface != null) {
             // In this case, the starting icon has already been displayed, so start
@@ -1382,7 +1398,7 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
             setAppLayoutChanges(FINISH_LAYOUT_REDO_ANIM, "checkAppWindowsReadyToShow");
 
             // We can now show all of the drawn windows!
-            if (!mService.mOpeningApps.contains(this) && canShowWindows()) {
+            if (!mService.mOpeningApps.contains(this)) {
                 showAllWindowsLocked();
             }
         }
@@ -2276,20 +2292,8 @@ class AppWindowToken extends WindowToken implements WindowManagerService.AppFree
         return (isAnimating() && hiddenRequested) || mWillCloseOrEnterPip;
     }
 
-    /**
-     * @return Whether we are allowed to show non-starting windows at the moment. We disallow
-     *         showing windows during transitions in case we have windows that have wide-color-gamut
-     *         color mode set to avoid jank in the middle of the transition.
-     */
-    boolean canShowWindows() {
-        return allDrawn && !(isReallyAnimating() && hasNonDefaultColorWindow());
-    }
-
-    /**
-     * @return true if we have a window that has a non-default color mode set; false otherwise.
-     */
-    private boolean hasNonDefaultColorWindow() {
-        return forAllWindows(ws -> ws.mAttrs.getColorMode() != COLOR_MODE_DEFAULT,
-                true /* topToBottom */);
-    }
+    /// M: add for fullscreen switch feature @{
+    public boolean isFullscreenOn = true;
+    private WmsExt mWmsExt = MtkSystemServiceFactory.getInstance().makeWmsExt();
+    /// @}
 }

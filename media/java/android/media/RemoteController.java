@@ -26,6 +26,7 @@ import android.media.session.MediaSession;
 import android.media.session.MediaSessionLegacyHelper;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -59,7 +60,7 @@ import java.util.List;
 {
     private final static int MAX_BITMAP_DIMENSION = 512;
     private final static String TAG = "RemoteController";
-    private final static boolean DEBUG = false;
+    private final static boolean DEBUG = !"user".equals(Build.TYPE);
     private final static Object mInfoLock = new Object();
     private final Context mContext;
     private final int mMaxBitmapDimension;

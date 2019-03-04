@@ -21,6 +21,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UiThread;
 import android.content.Context;
+import android.os.Bundle;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.text.Spannable;
@@ -59,6 +60,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import mediatek.text.util.LinkifyExt;
 
 /**
  *  Linkify take a piece of text and a regular expression and turns all of the
@@ -259,9 +262,15 @@ public class Linkify {
         ArrayList<LinkSpec> links = new ArrayList<LinkSpec>();
 
         if ((mask & WEB_URLS) != 0) {
-            gatherLinks(links, text, Patterns.AUTOLINK_WEB_URL,
-                new String[] { "http://", "https://", "rtsp://" },
-                sUrlMatchFilter, null);
+            /// M: for CNOP customization @{
+            /*
+            gatherLinks(links, text, Patterns.AUTOLINK_WEB_URL, new String[]{"http://",
+                    "https://", "rtsp://"}, sUrlMatchFilter, null);
+            */
+            gatherLinks(links, text, LinkifyExt.getExtWebUrlPattern(Patterns.AUTOLINK_WEB_URL),
+                    LinkifyExt.getExtWebProtocolNames(new String[]{"http://", "https://",
+                            "rtsp://"}), sUrlMatchFilter, null);
+            /// @}
         }
 
         if ((mask & EMAIL_ADDRESSES) != 0) {
@@ -770,9 +779,21 @@ public class Linkify {
             int start = m.start();
             int end = m.end();
 
+            /// M: for CNOP customization @{
+            Bundle urlData = LinkifyExt.getExtWebUrl(m.group(0),start,end,pattern);
+            String urlStr = m.group(0);
+            if(urlData != null) {
+                urlStr = urlData.getString("value");
+                start = urlData.getInt("start");
+                end = urlData.getInt("end");
+            }
+            /// @}
+
             if (matchFilter == null || matchFilter.acceptMatch(s, start, end)) {
                 LinkSpec spec = new LinkSpec();
-                String url = makeUrl(m.group(0), schemes, m, transformFilter);
+                /// M: for CNOP customization
+                // String url = makeUrl(m.group(0), schemes, m, transformFilter);
+                String url = makeUrl(urlStr, schemes, m, transformFilter);
 
                 spec.url = url;
                 spec.start = start;

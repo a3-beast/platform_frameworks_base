@@ -611,8 +611,19 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo> {
     }
 
     public String name() {
+        /// M: [ALPS03943799] JE will happen when networkInfo is set as null by
+        /// handlerRegisterNetworkAgent() running in another thread. @{
+        NetworkInfo tempInfo = networkInfo;
+        if (tempInfo == null) {
+            return "NetworkAgentInfo [null - " + Objects.toString(network) + "]";
+        }
+        return "NetworkAgentInfo [" + tempInfo.getTypeName() + " (" +
+                tempInfo.getSubtypeName() + ") - " + Objects.toString(network) + "]";
+        /* AOSP original code @{
         return "NetworkAgentInfo [" + networkInfo.getTypeName() + " (" +
                 networkInfo.getSubtypeName() + ") - " + Objects.toString(network) + "]";
+        @} */
+        /// @}
     }
 
     // Enables sorting in descending order of score.

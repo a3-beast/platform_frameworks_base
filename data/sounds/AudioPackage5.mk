@@ -74,3 +74,8 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/ringtones/Testudo.ogg:system/media/audio/ringtones/Testudo.ogg \
 	$(LOCAL_PATH)/ringtones/URSAMINOR.ogg:system/media/audio/ringtones/URSAMINOR.ogg \
 	$(LOCAL_PATH)/ringtones/Vespa.ogg:system/media/audio/ringtones/Vespa.ogg
+
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/VideoStop.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--

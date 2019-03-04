@@ -301,7 +301,7 @@ struct ProgramDescription {
 #endif
     }
 
-private:
+// M: private:
     static inline uint32_t getEnumForWrap(GLenum wrap) {
         switch (wrap) {
             case GL_CLAMP_TO_EDGE:
@@ -324,6 +324,8 @@ class Program {
 public:
     enum ShaderBindings { kBindingPosition, kBindingTexCoords };
 
+    // M:
+    Program();
     /**
      * Creates a new program with the specified vertex and fragment
      * shaders sources.
@@ -410,7 +412,7 @@ protected:
      */
     int addUniform(const char* name);
 
-private:
+//M: private:
     /**
      * Compiles the specified shader of the specified type.
      *

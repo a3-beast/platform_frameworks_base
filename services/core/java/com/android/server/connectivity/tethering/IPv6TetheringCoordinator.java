@@ -47,7 +47,8 @@ import java.util.Random;
 public class IPv6TetheringCoordinator {
     private static final String TAG = IPv6TetheringCoordinator.class.getSimpleName();
     private static final boolean DBG = false;
-    private static final boolean VDBG = false;
+    /// M: Enable debug log
+    private static final boolean VDBG = true;
 
     private static class Downstream {
         public final TetherInterfaceStateMachine tism;
@@ -73,6 +74,14 @@ public class IPv6TetheringCoordinator {
     private final byte[] mUniqueLocalPrefix;
     private short mNextSubnetId;
     private NetworkState mUpstreamNetworkState;
+
+    /// M: IPv6TetheringCoordinator add-on by Extension method
+    public IPv6TetheringCoordinator() {
+        mNotifyList = null;
+        mLog = null;
+        mActiveDownstreams = null;
+        mUniqueLocalPrefix = null;
+    }
 
     public IPv6TetheringCoordinator(ArrayList<TetherInterfaceStateMachine> notifyList,
                                     SharedLog log) {

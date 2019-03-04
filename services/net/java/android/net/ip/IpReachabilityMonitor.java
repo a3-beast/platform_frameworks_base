@@ -136,7 +136,7 @@ import java.util.Set;
  */
 public class IpReachabilityMonitor {
     private static final String TAG = "IpReachabilityMonitor";
-    private static final boolean DBG = false;
+    private static final boolean DBG = !android.os.Build.IS_USER;
     private static final boolean VDBG = false;
 
     public interface Callback {

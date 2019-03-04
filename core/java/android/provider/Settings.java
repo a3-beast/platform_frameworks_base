@@ -94,6 +94,7 @@ import com.android.internal.widget.ILockSettings;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
@@ -2253,6 +2254,9 @@ public final class Settings {
                 CALL_METHOD_PUT_SYSTEM,
                 sProviderHolder);
 
+        /// M: Mtk add ext System class
+        private static final String className = "com.mediatek.provider.MtkSettingsExt$System";
+
         private static final HashSet<String> MOVED_TO_SECURE;
         static {
             MOVED_TO_SECURE = new HashSet<>(30);
@@ -2287,6 +2291,10 @@ public final class Settings {
 
             // At one time in System, then Global, but now back in Secure
             MOVED_TO_SECURE.add(Secure.INSTALL_NON_MARKET_APPS);
+
+            /// M: Move mtk system settings to secure @{
+            putMtkSettingsToSet(className, "moveToSecure", HashSet.class, MOVED_TO_SECURE);
+            /// @}
         }
 
         private static final HashSet<String> MOVED_TO_GLOBAL;
@@ -2340,6 +2348,10 @@ public final class Settings {
             MOVED_TO_GLOBAL.add(Settings.Global.SMS_SHORT_CODES_UPDATE_METADATA_URL);
             MOVED_TO_GLOBAL.add(Settings.Global.CERT_PIN_UPDATE_CONTENT_URL);
             MOVED_TO_GLOBAL.add(Settings.Global.CERT_PIN_UPDATE_METADATA_URL);
+
+            /// M: Move mtk system settings to global @{
+            putMtkSettingsToSet(className, "moveToGlobal", HashSet.class, MOVED_TO_GLOBAL);
+            /// @}
         }
 
         /** @hide */
@@ -4152,8 +4164,7 @@ public final class Settings {
             SHOW_BATTERY_PERCENT,
             NOTIFICATION_VIBRATION_INTENSITY,
             HAPTIC_FEEDBACK_INTENSITY,
-            DISPLAY_COLOR_MODE,
-            NOTIFICATION_LIGHT_PULSE,
+            DISPLAY_COLOR_MODE
         };
 
         /**
@@ -4220,6 +4231,10 @@ public final class Settings {
             PUBLIC_SETTINGS.add(HAPTIC_FEEDBACK_ENABLED);
             PUBLIC_SETTINGS.add(SHOW_WEB_SUGGESTIONS);
             PUBLIC_SETTINGS.add(VIBRATE_WHEN_RINGING);
+
+            /// M: Add MTK settings to PUBLIC group @{
+            putMtkSettingsToSet(className, "putInPublicSettings", Set.class, PUBLIC_SETTINGS);
+            /// @}
         }
 
         /**
@@ -4356,7 +4371,6 @@ public final class Settings {
             VALIDATORS.put(WIFI_STATIC_DNS1, WIFI_STATIC_DNS1_VALIDATOR);
             VALIDATORS.put(WIFI_STATIC_DNS2, WIFI_STATIC_DNS2_VALIDATOR);
             VALIDATORS.put(SHOW_BATTERY_PERCENT, SHOW_BATTERY_PERCENT_VALIDATOR);
-            VALIDATORS.put(NOTIFICATION_LIGHT_PULSE, BOOLEAN_VALIDATOR);
         }
 
         /**
@@ -4834,6 +4848,11 @@ public final class Settings {
             MOVED_TO_GLOBAL.add(Settings.Global.DEFAULT_DNS_SERVER);
             MOVED_TO_GLOBAL.add(Settings.Global.PREFERRED_NETWORK_MODE);
             MOVED_TO_GLOBAL.add(Settings.Global.WEBVIEW_DATA_REDUCTION_PROXY_KEY);
+
+            /// M: Move mtk secure settings to global @{
+            String className = "com.mediatek.provider.MtkSettingsExt$Secure";
+            putMtkSettingsToSet(className, "moveToGlobal", HashSet.class, MOVED_TO_GLOBAL);
+            /// @}
         }
 
         /** @hide */
@@ -7531,6 +7550,9 @@ public final class Settings {
          */
         public static final String ASSIST_GESTURE_SENSITIVITY = "assist_gesture_sensitivity";
 
+        private static final Validator ASSIST_GESTURE_SENSITIVITY_VALIDATOR =
+                new SettingsValidators.InclusiveFloatRangeValidator(0.0f, 1.0f);
+
         /**
          * Whether the assist gesture should silence alerts.
          *
@@ -7559,6 +7581,8 @@ public final class Settings {
          * @hide
          */
         public static final String ASSIST_GESTURE_SETUP_COMPLETE = "assist_gesture_setup_complete";
+
+        private static final Validator ASSIST_GESTURE_SETUP_COMPLETE_VALIDATOR = BOOLEAN_VALIDATOR;
 
         /**
          * Control whether Night display is currently activated.
@@ -8015,6 +8039,8 @@ public final class Settings {
             NFC_PAYMENT_DEFAULT_COMPONENT,
             AUTOMATIC_STORAGE_MANAGER_DAYS_TO_RETAIN,
             ASSIST_GESTURE_ENABLED,
+            ASSIST_GESTURE_SENSITIVITY,
+            ASSIST_GESTURE_SETUP_COMPLETE,
             ASSIST_GESTURE_SILENCE_ALERTS_ENABLED,
             ASSIST_GESTURE_WAKE_ENABLED,
             VR_DISPLAY_MODE,
@@ -8153,6 +8179,8 @@ public final class Settings {
             VALIDATORS.put(AUTOMATIC_STORAGE_MANAGER_DAYS_TO_RETAIN,
                     AUTOMATIC_STORAGE_MANAGER_DAYS_TO_RETAIN_VALIDATOR);
             VALIDATORS.put(ASSIST_GESTURE_ENABLED, ASSIST_GESTURE_ENABLED_VALIDATOR);
+            VALIDATORS.put(ASSIST_GESTURE_SENSITIVITY, ASSIST_GESTURE_SENSITIVITY_VALIDATOR);
+            VALIDATORS.put(ASSIST_GESTURE_SETUP_COMPLETE, ASSIST_GESTURE_SETUP_COMPLETE_VALIDATOR);
             VALIDATORS.put(ASSIST_GESTURE_SILENCE_ALERTS_ENABLED,
                     ASSIST_GESTURE_SILENCE_ALERTS_ENABLED_VALIDATOR);
             VALIDATORS.put(ASSIST_GESTURE_WAKE_ENABLED, ASSIST_GESTURE_WAKE_ENABLED_VALIDATOR);
@@ -8175,8 +8203,6 @@ public final class Settings {
                     ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES_VALIDATOR); //legacy restore setting
             VALIDATORS.put(HUSH_GESTURE_USED, HUSH_GESTURE_USED_VALIDATOR);
             VALIDATORS.put(MANUAL_RINGER_TOGGLE_COUNT, MANUAL_RINGER_TOGGLE_COUNT_VALIDATOR);
-            VALIDATORS.put(LOCK_SCREEN_ALLOW_PRIVATE_NOTIFICATIONS, BOOLEAN_VALIDATOR);
-            VALIDATORS.put(LOCK_SCREEN_SHOW_NOTIFICATIONS, BOOLEAN_VALIDATOR);
         }
 
         /**
@@ -10514,15 +10540,6 @@ public final class Settings {
         public static final String ACTIVITY_MANAGER_CONSTANTS = "activity_manager_constants";
 
         /**
-         * Feature flag to enable or disable the activity starts logging feature.
-         * Type: int (0 for false, 1 for true)
-         * Default: 0
-         * @hide
-         */
-        public static final String ACTIVITY_STARTS_LOGGING_ENABLED
-                = "activity_starts_logging_enabled";
-
-        /**
          * App ops specific settings.
          * This is encoded as a key=value list, separated by commas. Ex:
          *
@@ -12191,6 +12208,11 @@ public final class Settings {
         static {
             MOVED_TO_SECURE = new HashSet<>(1);
             MOVED_TO_SECURE.add(Settings.Global.INSTALL_NON_MARKET_APPS);
+
+            /// M: Move mtk global settings to secure@{
+            String className = "com.mediatek.provider.MtkSettingsExt$Global";
+            putMtkSettingsToSet(className, "moveToSecure", HashSet.class, MOVED_TO_SECURE);
+            /// @}
         }
 
         /** @hide */
@@ -12781,7 +12803,6 @@ public final class Settings {
          * Supported keys:
          * compatibility_wal_supported      (boolean)
          * wal_syncmode       (String)
-         * truncate_size      (int)
          *
          * @hide
          */
@@ -13348,4 +13369,21 @@ public final class Settings {
         }
         return packages[0];
     }
+
+    /// M: Put mtk settings to designated set @{
+    private static void putMtkSettingsToSet(String className, String methodName, Class para
+            ,Object set) {
+        try {
+            Class<?> extSettingsCls = Class.forName(className, false,
+                    ClassLoader.getSystemClassLoader());
+            Class paraClass[] = {para};
+            Method moveMethod
+                = extSettingsCls.getDeclaredMethod(methodName, paraClass);
+            moveMethod.setAccessible(true);
+            moveMethod.invoke(extSettingsCls, set);
+        } catch (Exception  e) {
+            Log.e(TAG, "No MtkSettingsExt! Do nothing. - " + e);
+        }
+    }
+    /// @}
 }

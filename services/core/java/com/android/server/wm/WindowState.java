@@ -85,7 +85,6 @@ import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_FOCUS;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_FOCUS_LIGHT;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_INPUT_METHOD;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_LAYOUT;
-import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_LAYOUT_REPEATS;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_ORIENTATION;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_POWER;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_RESIZE;
@@ -126,7 +125,6 @@ import static com.android.server.wm.WindowStateProto.DECOR_FRAME;
 import static com.android.server.wm.WindowStateProto.DESTROYING;
 import static com.android.server.wm.WindowStateProto.DISPLAY_FRAME;
 import static com.android.server.wm.WindowStateProto.DISPLAY_ID;
-import static com.android.server.wm.WindowStateProto.FINISHED_FORCED_SEAMLESS_ROTATION_FRAME;
 import static com.android.server.wm.WindowStateProto.FRAME;
 import static com.android.server.wm.WindowStateProto.GIVEN_CONTENT_INSETS;
 import static com.android.server.wm.WindowStateProto.HAS_SURFACE;
@@ -139,7 +137,6 @@ import static com.android.server.wm.WindowStateProto.OUTSET_FRAME;
 import static com.android.server.wm.WindowStateProto.OVERSCAN_FRAME;
 import static com.android.server.wm.WindowStateProto.OVERSCAN_INSETS;
 import static com.android.server.wm.WindowStateProto.PARENT_FRAME;
-import static com.android.server.wm.WindowStateProto.PENDING_FORCED_SEAMLESS_ROTATION;
 import static com.android.server.wm.WindowStateProto.REMOVED;
 import static com.android.server.wm.WindowStateProto.REMOVE_ON_EXIT;
 import static com.android.server.wm.WindowStateProto.REQUESTED_HEIGHT;
@@ -153,8 +150,6 @@ import static com.android.server.wm.WindowStateProto.VIEW_VISIBILITY;
 import static com.android.server.wm.WindowStateProto.VISIBLE_FRAME;
 import static com.android.server.wm.WindowStateProto.VISIBLE_INSETS;
 import static com.android.server.wm.WindowStateProto.WINDOW_CONTAINER;
-import static com.android.server.wm.utils.CoordinateTransforms.transformRect;
-import static com.android.server.wm.utils.CoordinateTransforms.transformToRotation;
 
 import android.annotation.CallSuper;
 import android.app.AppOpsManager;
@@ -210,6 +205,10 @@ import com.android.server.policy.WindowManagerPolicy;
 import com.android.server.wm.LocalAnimationAdapter.AnimationSpec;
 import com.android.server.wm.utils.WmDisplayCutout;
 
+/// M: add for fullscreen switch feature
+import com.mediatek.server.MtkSystemServiceFactory;
+import com.mediatek.server.wm.WmsExt;
+
 import java.io.PrintWriter;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -217,7 +216,8 @@ import java.util.Comparator;
 import java.util.function.Predicate;
 
 /** A window in the window manager. */
-class WindowState extends WindowContainer<WindowState> implements WindowManagerPolicy.WindowState {
+public class WindowState extends WindowContainer<WindowState> implements
+    WindowManagerPolicy.WindowState {
     static final String TAG = TAG_WITH_CLASS_NAME ? "WindowState" : TAG_WM;
 
     // The minimal size of a window within the usable area of the freeform stack.
@@ -256,7 +256,8 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     final boolean mIsWallpaper;
     private final boolean mIsFloatingLayer;
     int mSeq;
-    boolean mEnforceSizeCompat;
+    /// M: public for App Resolution Tuner
+    public boolean mEnforceSizeCompat;
     int mViewVisibility;
     int mSystemUiVisibility;
     /**
@@ -283,14 +284,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     private boolean mDragResizing;
     private boolean mDragResizingChangeReported = true;
     private int mResizeMode;
-    /**
-     * Special mode that is intended only for the rounded corner overlay: during rotation
-     * transition, we un-rotate the window token such that the window appears as it did before the
-     * rotation.
-     */
-    final boolean mForceSeamlesslyRotate;
-    ForcedSeamlessRotator mPendingForcedSeamlessRotate;
-    long mFinishForcedSeamlessRotateFrameNumber;
 
     private RemoteCallbackList<IWindowFocusObserver> mFocusCallbacks;
 
@@ -636,6 +629,11 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
 
     private final Point mSurfacePosition = new Point();
 
+    /// M: Add for App Resolution Tuner @{
+    public boolean mNeedHWResizer= false;
+    public float mHWScale = mGlobalScale;
+    /// @}
+
     /**
      * A region inside of this window to be excluded from touch-related focus switches.
      */
@@ -679,18 +677,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     private boolean mIsDimming = false;
 
     private static final float DEFAULT_DIM_AMOUNT_DEAD_WINDOW = 0.5f;
-
-    void forceSeamlesslyRotateIfAllowed(int oldRotation, int rotation) {
-        if (mForceSeamlesslyRotate) {
-            if (mPendingForcedSeamlessRotate != null) {
-                oldRotation = mPendingForcedSeamlessRotate.getOldRotation();
-            }
-
-            mPendingForcedSeamlessRotate = new ForcedSeamlessRotator(
-                    oldRotation, rotation, getDisplayInfo());
-            mPendingForcedSeamlessRotate.unrotate(this.mToken);
-        }
-    }
 
     interface PowerManagerWrapper {
         void wakeUp(long time, String reason);
@@ -738,7 +724,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         mSeq = seq;
         mEnforceSizeCompat = (mAttrs.privateFlags & PRIVATE_FLAG_COMPATIBLE_WINDOW) != 0;
         mPowerManagerWrapper = powerManagerWrapper;
-        mForceSeamlesslyRotate = token.mRoundedCornerOverlay;
         if (localLOGV) Slog.v(
             TAG, "Window " + this + " client=" + c.asBinder()
             + " token=" + token + " (" + mAttrs.token + ")" + " params=" + a);
@@ -806,6 +791,13 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         mInputWindowHandle = new InputWindowHandle(
                 mAppToken != null ? mAppToken.mInputApplicationHandle : null, this, c,
                     getDisplayId());
+
+        // / M: add for fullscreen switch feature @{
+        if (mWmsExt.isFullScreenCropState(mService.mFocusedApp)) {
+            mIsFullscreenOn = mAppToken == null ? true
+                    : mAppToken.isFullscreenOn;
+        }
+        /// @}
     }
 
     void attach() {
@@ -1335,7 +1327,10 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
                         + " configChanged=" + configChanged
                         + " dragResizingChanged=" + dragResizingChanged
                         + " reportOrientationChanged=" + mReportOrientationChanged
-                        + " displayCutoutChanged=" + mDisplayCutoutChanged);
+                        + " displayCutoutChanged=" + mDisplayCutoutChanged
+                        /// M: Add more log at WMS
+                        + " contentInsets=" + mContentInsets
+                        + " visibleInsets=" + mVisibleInsets);
             }
 
             // If it's a dead window left on screen, and the configuration changed, there is nothing
@@ -1500,6 +1495,12 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     void prelayout() {
         if (mEnforceSizeCompat) {
             mGlobalScale = getDisplayContent().mCompatibleScreenScale;
+            /// M: Add for App Resolution Tuner @{
+            if (mNeedHWResizer) {
+                mGlobalScale = mHWScale;
+                Slog.v("Scale_Test","windowstate prelayout() Need HWResizer, mGlobalScale = " + mGlobalScale + " , this = " + this);
+            }
+            /// @}
             mInvGlobalScale = 1 / mGlobalScale;
         } else {
             mGlobalScale = mInvGlobalScale = 1;
@@ -1837,8 +1838,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
                 && (mAttrs.privateFlags & PRIVATE_FLAG_NO_MOVE_ANIMATION) == 0
                 && !isDragResizing() && !adjustedForMinimizedDockOrIme
                 && getWindowConfiguration().hasMovementAnimations()
-                && !mWinAnimator.mLastHidden
-                && !mSeamlesslyRotated) {
+                && !mWinAnimator.mLastHidden) {
             startMoveAnimation(left, top);
         }
 
@@ -2078,7 +2078,11 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
                         mAppToken.updateReportedVisibilityLocked();
                     }
                     return;
+                /// M: if don't start animation, set it as false.
+                } else {
+                    mAnimatingExit = false;
                 }
+                /// M: @}
             }
 
             removeImmediately();
@@ -2363,7 +2367,8 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         // turning back on.
         if (hasTurnScreenOnFlag) {
             if (allowTheaterMode && canTurnScreenOn && !mPowerManagerWrapper.isInteractive()) {
-                if (DEBUG_VISIBILITY || DEBUG_POWER) {
+                if (DEBUG_VISIBILITY || DEBUG_POWER
+                        || mService.mWindowManagerDebugger.WMS_DEBUG_USER) {
                     Slog.v(TAG, "Relayout window turning screen on: " + this);
                 }
                 mPowerManagerWrapper.wakeUp(SystemClock.uptimeMillis(),
@@ -3087,7 +3092,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         return mTmpRect;
     }
 
-    private int getStackId() {
+    public int getStackId() {
         final TaskStack stack = getStack();
         if (stack == null) {
             return INVALID_STACK_ID;
@@ -3313,11 +3318,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         proto.write(REMOVED, mRemoved);
         proto.write(IS_ON_SCREEN, isOnScreen());
         proto.write(IS_VISIBLE, isVisible());
-        if (mForceSeamlesslyRotate) {
-            proto.write(PENDING_FORCED_SEAMLESS_ROTATION, mPendingForcedSeamlessRotate != null);
-            proto.write(FINISHED_FORCED_SEAMLESS_ROTATION_FRAME,
-                    mFinishForcedSeamlessRotateFrameNumber);
-        }
         proto.end(token);
     }
 
@@ -3428,6 +3428,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         }
         pw.print(prefix); pw.print("mHasSurface="); pw.print(mHasSurface);
                 pw.print(" isReadyForDisplay()="); pw.print(isReadyForDisplay());
+                pw.print(" canReceiveKeys()="); pw.print(canReceiveKeys());
                 pw.print(" mWindowRemovalAllowed="); pw.println(mWindowRemovalAllowed);
         if (dumpAll) {
             pw.print(prefix); pw.print("mFrame="); mFrame.printShortString(pw);
@@ -3493,16 +3494,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         if (mLastFreezeDuration != 0) {
             pw.print(prefix); pw.print("mLastFreezeDuration=");
                     TimeUtils.formatDuration(mLastFreezeDuration, pw); pw.println();
-        }
-        if (mForceSeamlesslyRotate) {
-            pw.print(prefix); pw.print("forceSeamlesslyRotate: pending=");
-            if (mPendingForcedSeamlessRotate != null) {
-                mPendingForcedSeamlessRotate.dump(pw);
-            } else {
-                pw.print("null");
-            }
-            pw.print(" finishedFrameNumber="); pw.print(mFinishForcedSeamlessRotateFrameNumber);
-            pw.println();
         }
         if (mHScale != 1 || mVScale != 1) {
             pw.print(prefix); pw.print("mHScale="); pw.print(mHScale);
@@ -4249,15 +4240,10 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         }
         if (!mWinAnimator.mLastHidden || wasDeferred) {
             mWinAnimator.hide(reason);
-            getDisplayContent().mWallpaperController.mDeferredHideWallpaper = null;
             dispatchWallpaperVisibility(false);
             final DisplayContent displayContent = getDisplayContent();
             if (displayContent != null) {
                 displayContent.pendingLayoutChanges |= FINISH_LAYOUT_REDO_WALLPAPER;
-                if (DEBUG_LAYOUT_REPEATS) {
-                    mService.mWindowPlacerLocked.debugLayoutRepeats("hideWallpaperWindow " + this,
-                            displayContent.pendingLayoutChanges);
-                }
             }
         }
     }
@@ -4744,10 +4730,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
 
         transformFrameToSurfacePosition(mFrame.left, mFrame.top, mSurfacePosition);
 
-        // Freeze position while we're unrotated, so the surface remains at the position it was
-        // prior to the rotation.
-        if (!mSurfaceAnimator.hasLeash() && mPendingForcedSeamlessRotate == null &&
-                !mLastSurfacePosition.equals(mSurfacePosition)) {
+        if (!mSurfaceAnimator.hasLeash() && !mLastSurfacePosition.equals(mSurfacePosition)) {
             t.setPosition(mSurfaceControl, mSurfacePosition.x, mSurfacePosition.y);
             mLastSurfacePosition.set(mSurfacePosition.x, mSurfacePosition.y);
             if (surfaceInsetsChanging() && mWinAnimator.hasSurface()) {
@@ -4900,31 +4883,6 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         mFrameNumber = frameNumber;
     }
 
-    @Override
-    void seamlesslyRotate(Transaction t, int oldRotation, int newRotation) {
-        // Invisible windows, the wallpaper, and force seamlessly rotated windows do not participate
-        // in the regular seamless rotation animation.
-        if (!isVisibleNow() || mIsWallpaper || mForceSeamlesslyRotate) {
-            return;
-        }
-        final Matrix transform = mTmpMatrix;
-
-        mService.markForSeamlessRotation(this, true);
-
-        // We rotated the screen, but have not performed a new layout pass yet. In the mean time,
-        // we recompute the coordinates of mFrame in the new orientation, so the surface can be
-        // properly placed.
-        transformToRotation(oldRotation, newRotation, getDisplayInfo(), transform);
-        transformRect(transform, mFrame, null /* tmpRectF */);
-
-        updateSurfacePosition(t);
-        mWinAnimator.seamlesslyRotate(t, oldRotation, newRotation);
-
-        // Dispatch to children only after mFrame has been updated, as it's needed in the
-        // child's updateSurfacePosition.
-        super.seamlesslyRotate(t, oldRotation, newRotation);
-    }
-
     private final class MoveAnimationSpec implements AnimationSpec {
 
         private final long mDuration;
@@ -4971,4 +4929,13 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
             proto.end(token);
         }
     }
+
+    /// M: add for fullscreen switch feature @{
+    private WmsExt mWmsExt = MtkSystemServiceFactory.getInstance().makeWmsExt();
+    private boolean mIsFullscreenOn = true;
+
+    public boolean isFullscreenOn() {
+        return mIsFullscreenOn;
+    }
+    /// @
 }

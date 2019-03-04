@@ -50,7 +50,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.io.PrintWriter;
 import java.util.function.Consumer;
 
-class Task extends WindowContainer<AppWindowToken> {
+public class Task extends WindowContainer<AppWindowToken> {
     static final String TAG = TAG_WITH_CLASS_NAME ? "Task" : TAG_WM;
 
     // TODO: Track parent marks like this in WindowContainer.
@@ -444,6 +444,13 @@ class Task extends WindowContainer<AppWindowToken> {
 
     /** Bounds of the task to be used for dimming, as well as touch related tests. */
     public void getDimBounds(Rect out) {
+        /// M: check null pointer, mStack maybe set as null {@
+        if (mStack == null) {
+            Slog.w(TAG, "getDimBounds: mStack has been removed.");
+            return;
+        }
+        /// @}
+
         final DisplayContent displayContent = mStack.getDisplayContent();
         // It doesn't matter if we in particular are part of the resize, since we couldn't have
         // a DimLayer anyway if we weren't visible.
@@ -604,7 +611,7 @@ class Task extends WindowContainer<AppWindowToken> {
         return null;
     }
 
-    boolean isFullscreen() {
+    public boolean isFullscreen() {
         if (useCurrentBounds()) {
             return matchParentBounds();
         }

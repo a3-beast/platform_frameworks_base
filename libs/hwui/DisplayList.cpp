@@ -36,6 +36,9 @@ DisplayList::DisplayList()
         , stdAllocator(allocator)
         , chunks(stdAllocator)
         , ops(stdAllocator)
+    #ifdef ENABLE_DR_HWUI
+        , allOps(stdAllocator)
+    #endif
         , children(stdAllocator)
         , bitmapResources(stdAllocator)
         , pathResources(stdAllocator)

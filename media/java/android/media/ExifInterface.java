@@ -2048,7 +2048,8 @@ public class ExifInterface {
                 }
             }
             return msecs;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ex) {
+            Log.e(TAG, "getDateTime: IllegalArgumentException!", ex);
             return -1;
         }
     }
@@ -2074,7 +2075,8 @@ public class ExifInterface {
             Date datetime = sFormatter.parse(dateTimeString, pos);
             if (datetime == null) return -1;
             return datetime.getTime();
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ex) {
+            Log.e(TAG, "getGpsDateTime: IllegalArgumentException!", ex);
             return -1;
         }
     }

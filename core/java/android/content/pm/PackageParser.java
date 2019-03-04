@@ -96,6 +96,8 @@ import com.android.internal.os.ClassLoaderFactory;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.XmlUtils;
 
+import com.mediatek.cta.CtaManagerFactory;
+
 import libcore.io.IoUtils;
 import libcore.util.EmptyArray;
 
@@ -639,19 +641,11 @@ public class PackageParser {
      */
     private static boolean checkUseInstalledOrHidden(int flags, PackageUserState state,
             ApplicationInfo appInfo) {
-        // Returns false if the package is hidden system app until installed.
-        if ((flags & PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS) == 0
-                && !state.installed
-                && appInfo != null && appInfo.hiddenUntilInstalled) {
-            return false;
-        }
-
         // If available for the target user, or trying to match uninstalled packages and it's
         // a system app.
         return state.isAvailable(flags)
                 || (appInfo != null && appInfo.isSystemApp()
-                        && ((flags & PackageManager.MATCH_KNOWN_PACKAGES) != 0
-                        || (flags & PackageManager.MATCH_HIDDEN_UNTIL_INSTALLED_COMPONENTS) != 0));
+                        && (flags & PackageManager.MATCH_KNOWN_PACKAGES) != 0);
     }
 
     public static boolean isAvailable(PackageUserState state) {
@@ -2497,6 +2491,11 @@ public class PackageParser {
         if (pkg.applicationInfo.usesCompatibilityMode()) {
             adjustPackageToBeUnresizeableAndUnpipable(pkg);
         }
+
+        /// M: CTA requirement - permission control  @{
+        CtaManagerFactory.getInstance().makeCtaManager().linkCtaPermissions(pkg);
+        //@}
+
         return pkg;
     }
 

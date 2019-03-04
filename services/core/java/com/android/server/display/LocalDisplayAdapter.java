@@ -31,6 +31,8 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemProperties;
 import android.os.Trace;
+import android.text.TextUtils;
+import android.util.PathParser;
 import android.util.Slog;
 import android.util.SparseArray;
 import android.view.Display;
@@ -53,6 +55,7 @@ import java.util.List;
 final class LocalDisplayAdapter extends DisplayAdapter {
     private static final String TAG = "LocalDisplayAdapter";
     private static final boolean DEBUG = false;
+    private static final boolean MTK_DEBUG = "eng".equals(Build.TYPE);
 
     private static final String UNIQUE_ID_PREFIX = "local:";
 
@@ -402,12 +405,8 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                             && SystemProperties.getBoolean(PROPERTY_EMULATOR_CIRCULAR, false))) {
                         mInfo.flags |= DisplayDeviceInfo.FLAG_ROUND;
                     }
-                    if (res.getBoolean(
-                            com.android.internal.R.bool.config_maskMainBuiltInDisplayCutout)) {
-                        mInfo.flags |= DisplayDeviceInfo.FLAG_MASK_DISPLAY_CUTOUT;
-                    }
-                    mInfo.displayCutout = DisplayCutout.fromResourcesRectApproximation(res,
-                            mInfo.width, mInfo.height);
+                    mInfo.displayCutout = DisplayCutout.fromResources(res, mInfo.width,
+                            mInfo.height);
                     mInfo.type = Display.TYPE_BUILT_IN;
                     mInfo.densityDpi = (int)(phys.density * 160 + 0.5f);
                     mInfo.xDpi = phys.xDpi;
@@ -526,7 +525,7 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                     }
 
                     private void setDisplayState(int state) {
-                        if (DEBUG) {
+                        if (DEBUG || MTK_DEBUG) {
                             Slog.d(TAG, "setDisplayState("
                                     + "id=" + displayId
                                     + ", state=" + Display.stateToString(state) + ")");
@@ -569,7 +568,7 @@ final class LocalDisplayAdapter extends DisplayAdapter {
                     }
 
                     private void setDisplayBrightness(int brightness) {
-                        if (DEBUG) {
+                        if (DEBUG || MTK_DEBUG) {
                             Slog.d(TAG, "setDisplayBrightness("
                                     + "id=" + displayId + ", brightness=" + brightness + ")");
                         }

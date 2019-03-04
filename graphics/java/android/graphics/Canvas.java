@@ -490,8 +490,15 @@ public class Canvas extends BaseCanvas {
     /**
      * @hide
      */
-    public int saveUnclippedLayer(int left, int top, int right, int bottom) {
-        return nSaveLayer(mNativeCanvasWrapper, left, top, right, bottom, 0, 0);
+    public long saveUnclippedLayer(int left, int top, int right, int bottom) {
+        return nSaveUnclippedLayer(mNativeCanvasWrapper, left, top, right, bottom);
+    }
+
+    /**
+     * @hide
+     */
+    public void restoreUnclippedLayer(long savePtr) {
+        nRestoreUnclippedLayer(mNativeCanvasWrapper, savePtr);
     }
 
     /**
@@ -1334,6 +1341,11 @@ public class Canvas extends BaseCanvas {
     private static native int nGetSaveCount(long canvasHandle);
 
     @CriticalNative
+    private static native long nSaveUnclippedLayer(long nativeCanvas, int l, int t, int r, int b);
+    @CriticalNative
+    private static native void nRestoreUnclippedLayer(long nativeCanvas, long savePtr);
+
+    @CriticalNative
     private static native void nTranslate(long canvasHandle, float dx, float dy);
     @CriticalNative
     private static native void nScale(long canvasHandle, float sx, float sy);
@@ -1591,9 +1603,9 @@ public class Canvas extends BaseCanvas {
      * Draw the specified circle using the specified paint. If radius is <= 0, then nothing will be
      * drawn. The circle will be filled or framed based on the Style in the paint.
      *
-     * @param cx The x-coordinate of the center of the circle to be drawn
-     * @param cy The y-coordinate of the center of the circle to be drawn
-     * @param radius The radius of the circle to be drawn
+     * @param cx The x-coordinate of the center of the cirle to be drawn
+     * @param cy The y-coordinate of the center of the cirle to be drawn
+     * @param radius The radius of the cirle to be drawn
      * @param paint The paint used to draw the circle
      */
     public void drawCircle(float cx, float cy, float radius, @NonNull Paint paint) {

@@ -171,6 +171,9 @@ public:
     virtual void callDrawGLFunction(Functor* functor,
                                     uirenderer::GlFunctorLifecycleListener* listener) = 0;
 
+    virtual void* saveUnclippedLayer(int, int, int, int) { return nullptr; }
+    virtual void restoreUnclippedLayer(void*) { }
+
     // ----------------------------------------------------------------------------
     // Canvas state operations
     // ----------------------------------------------------------------------------

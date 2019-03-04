@@ -394,7 +394,11 @@ static jobject android_media_MediaMetadataRetriever_getFrameAtTime(
 
     // Call native method to retrieve a video frame
     VideoFrame *videoFrame = NULL;
+#ifdef MTK_HIGH_QUALITY_THUMBNAIL
+    sp<IMemory> frameMemory = retriever->getFrameAtTime(timeUs, option,HAL_PIXEL_FORMAT_RGBA_8888);
+#else
     sp<IMemory> frameMemory = retriever->getFrameAtTime(timeUs, option);
+#endif
     if (frameMemory != 0) {  // cast the shared structure to a VideoFrame object
         videoFrame = static_cast<VideoFrame *>(frameMemory->pointer());
     }
@@ -402,8 +406,11 @@ static jobject android_media_MediaMetadataRetriever_getFrameAtTime(
         ALOGE("getFrameAtTime: videoFrame is a NULL pointer");
         return NULL;
     }
-
+#ifdef MTK_HIGH_QUALITY_THUMBNAIL
+    return getBitmapFromVideoFrame(env, videoFrame, dst_width, dst_height,  kRGBA_8888_SkColorType);
+#else
     return getBitmapFromVideoFrame(env, videoFrame, dst_width, dst_height, kRGB_565_SkColorType);
+#endif
 }
 
 static jobject android_media_MediaMetadataRetriever_getImageAtIndex(

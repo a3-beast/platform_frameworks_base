@@ -42,6 +42,7 @@ import android.os.LocaleList;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.Trace;
+import android.util.ArrayMap;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -52,6 +53,7 @@ import android.util.Xml;
 import android.view.DisplayAdjustments;
 
 import com.android.internal.util.GrowingArrayUtils;
+import mediatek.content.res.MtkBoostDrawableCache;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -107,6 +109,9 @@ public class ResourcesImpl {
     private static final LongSparseArray<android.content.res.ConstantState<ComplexColor>>
             sPreloadedComplexColors = new LongSparseArray<>();
 
+    /// M: Boost cache on system @{
+    private MtkBoostDrawableCache mMtkBoostDrawableCache = new MtkBoostDrawableCache();
+    /// @}
     /** Lock object used to protect access to caches and configuration. */
     private final Object mAccessLock = new Object();
 
@@ -450,7 +455,9 @@ public class ResourcesImpl {
                             + mConfiguration + " final compat is "
                             + mDisplayAdjustments.getCompatibilityInfo());
                 }
-
+                /// M: Boost cache on system @{
+                mMtkBoostDrawableCache.onConfigurationChange(configChanges);
+                /// @}
                 mDrawableCache.onConfigurationChange(configChanges);
                 mColorDrawableCache.onConfigurationChange(configChanges);
                 mComplexColorCache.onConfigurationChange(configChanges);
@@ -600,6 +607,16 @@ public class ResourcesImpl {
                     cachedDrawable.setChangingConfigurations(value.changingConfigurations);
                     return cachedDrawable;
                 }
+                /// M: Boost cache on system @{
+                synchronized (mAccessLock) {
+                    final Drawable boostDrawable = mMtkBoostDrawableCache
+                            .getBoostCachedDrawable(wrapper, key);
+                    if (boostDrawable != null) {
+                        Slog.w(TAG, "Using Boost");
+                        return boostDrawable;
+                    }
+                }
+                /// @}
             }
 
             // Next, check preloaded drawables. Preloaded drawables may contain
@@ -713,6 +730,11 @@ public class ResourcesImpl {
         } else {
             synchronized (mAccessLock) {
                 caches.put(key, theme, cs, usesTheme);
+                /// M: Boost cache on system @{
+                if (!isColorDrawable) {
+                    mMtkBoostDrawableCache.putBoostCache(key, cs);
+                }
+                /// @}
             }
         }
     }

@@ -139,6 +139,9 @@ bool GraphicsStatsService::parseFromFile(const std::string& path,
     uint32_t file_version = *reinterpret_cast<uint32_t*>(addr);
     if (file_version != sCurrentFileVersion) {
         ALOGW("file_version mismatch! expected %d got %d", sCurrentFileVersion, file_version);
+        /// M:sould call mummap to release memory map after mmap @{
+        munmap(addr, sb.st_size);
+        /// @}
         return false;
     }
 
@@ -150,6 +153,9 @@ bool GraphicsStatsService::parseFromFile(const std::string& path,
         ALOGW("Parse failed on '%s' error='%s'", path.c_str(),
               output->InitializationErrorString().c_str());
     }
+    /// M:sould call mummap to release memory map after mmap @{
+    munmap(addr, sb.st_size);
+    /// @}
     return success;
 }
 

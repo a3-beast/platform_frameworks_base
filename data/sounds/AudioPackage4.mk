@@ -55,6 +55,11 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/newwavelabs/Backroad.ogg:system/media/audio/ringtones/Backroad.ogg \
 	$(LOCAL_PATH)/newwavelabs/CaffeineSnake.ogg:system/media/audio/notifications/CaffeineSnake.ogg
 
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/VideoStop.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--
+
 ifneq ($(MINIMAL_NEWWAVELABS),true)
 PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/newwavelabs/DearDeer.ogg:system/media/audio/notifications/DearDeer.ogg \

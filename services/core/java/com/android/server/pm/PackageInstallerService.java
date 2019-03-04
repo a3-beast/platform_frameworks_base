@@ -87,6 +87,9 @@ import com.android.server.IoThread;
 import com.android.server.LocalServices;
 import com.android.server.pm.permission.PermissionManagerInternal;
 
+import com.mediatek.server.MtkSystemServiceFactory;
+import com.mediatek.server.powerhal.PowerHalManager;
+
 import libcore.io.IoUtils;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -131,6 +134,10 @@ public class PackageInstallerService extends IPackageInstaller.Stub {
     private final PermissionManagerInternal mPermissionManager;
 
     private AppOpsManager mAppOps;
+
+    ///M: MTK Power: installation boost mechanism
+    private PowerHalManager mPowerHalManager =
+        MtkSystemServiceFactory.getInstance().makePowerHalManager();
 
     private final HandlerThread mInstallThread;
     private final Handler mInstallHandler;
@@ -599,6 +606,10 @@ public class PackageInstallerService extends IPackageInstaller.Stub {
     @Override
     public IPackageInstallerSession openSession(int sessionId) {
         try {
+            ///M: MTK Power: Enable installation boost
+            if (mPowerHalManager != null) {
+                mPowerHalManager.setInstallationBoost(true);
+            }
             return openSessionInternal(sessionId);
         } catch (IOException e) {
             throw ExceptionUtils.wrap(e);

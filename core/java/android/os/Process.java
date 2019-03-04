@@ -925,7 +925,7 @@ public class Process {
      * @param signal The signal to send.
      */
     public static final native void sendSignal(int pid, int signal);
-    
+
     /**
      * @hide
      * Private impl for avoiding a log message...  DO NOT USE without doing
@@ -943,20 +943,27 @@ public class Process {
      * beat you up.
      */
     public static final native void sendSignalQuiet(int pid, int signal);
-    
+
     /** @hide */
     public static final native long getFreeMemory();
-    
+
     /** @hide */
     public static final native long getTotalMemory();
-    
+
     /** @hide */
     public static final native void readProcLines(String path,
             String[] reqFields, long[] outSizes);
-    
+
     /** @hide */
     public static final native int[] getPids(String path, int[] lastArray);
-    
+
+    /**
+     * @hide
+     * M: To get total anon memory @{
+     */
+    public static final native long getLruAnonMemory();
+    /** @} */
+
     /** @hide */
     public static final int PROC_TERM_MASK = 0xff;
     /** @hide */

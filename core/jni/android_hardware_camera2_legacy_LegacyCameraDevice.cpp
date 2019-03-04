@@ -283,7 +283,9 @@ static status_t produceFrame(const sp<ANativeWindow>& anw,
             }
 
             uint8_t* img = NULL;
-            ALOGV("%s: Lock buffer from %p for write", __FUNCTION__, anw.get());
+            //!++
+            ALOGI("%s: Lock buffer from %p for write", __FUNCTION__, anw.get());
+            //!--
             err = buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
             if (err != NO_ERROR) {
                 ALOGE("%s: Error %s (%d) while locking gralloc buffer for write.", __FUNCTION__,
@@ -365,8 +367,9 @@ static status_t produceFrame(const sp<ANativeWindow>& anw,
         ALOGE("%s: Failed to unlock buffer, error %s (%d).", __FUNCTION__, strerror(-err), err);
         return err;
     }
-
-    ALOGV("%s: Queue buffer to %p", __FUNCTION__, anw.get());
+    //!++
+    ALOGI("%s: Queue buffer to %p", __FUNCTION__, anw.get());
+    //!--
     err = anw->queueBuffer(anw.get(), buf->getNativeBuffer(), /*fenceFd*/-1);
     if (err != NO_ERROR) {
         ALOGE("%s: Failed to queue buffer, error %s (%d).", __FUNCTION__, strerror(-err), err);
@@ -514,14 +517,14 @@ static jint LegacyCameraDevice_nativeDetectSurfaceUsageFlags(JNIEnv* env, jobjec
 
     sp<ANativeWindow> anw;
     if ((anw = getNativeWindow(env, surface)) == NULL) {
-        jniThrowException(env, "java/lang/UnsupportedOperationException;",
+        jniThrowException(env, "java/lang/UnsupportedOperationException",
             "Could not retrieve native window from surface.");
         return BAD_VALUE;
     }
     int32_t usage = 0;
     status_t err = anw->query(anw.get(), NATIVE_WINDOW_CONSUMER_USAGE_BITS, &usage);
     if(err != NO_ERROR) {
-        jniThrowException(env, "java/lang/UnsupportedOperationException;",
+        jniThrowException(env, "java/lang/UnsupportedOperationException",
             "Error while querying surface usage bits");
         OVERRIDE_SURFACE_ERROR(err);
         return err;
@@ -542,7 +545,7 @@ static jint LegacyCameraDevice_nativeDisconnectSurface(JNIEnv* env, jobject thiz
 
     status_t err = native_window_api_disconnect(anw.get(), NATIVE_WINDOW_API_CAMERA);
     if(err != NO_ERROR) {
-        jniThrowException(env, "java/lang/UnsupportedOperationException;",
+        jniThrowException(env, "java/lang/UnsupportedOperationException",
             "Error while disconnecting surface");
         OVERRIDE_SURFACE_ERROR(err);
         return err;

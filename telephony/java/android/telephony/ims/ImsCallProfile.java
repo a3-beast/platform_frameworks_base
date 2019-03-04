@@ -453,6 +453,8 @@ public final class ImsCallProfile implements Parcelable {
         Bundle filteredExtras = maybeCleanseExtras(mCallExtras);
         out.writeInt(mServiceType);
         out.writeInt(mCallType);
+        ///M:write mRestrictCause to parcel
+        out.writeInt(mRestrictCause);
         out.writeBundle(filteredExtras);
         out.writeParcelable(mMediaProfile, 0);
     }
@@ -460,6 +462,8 @@ public final class ImsCallProfile implements Parcelable {
     private void readFromParcel(Parcel in) {
         mServiceType = in.readInt();
         mCallType = in.readInt();
+        ///M:read mRestrictCause from parcel
+        mRestrictCause = in.readInt();
         mCallExtras = in.readBundle();
         mMediaProfile = in.readParcelable(ImsStreamMediaProfile.class.getClassLoader());
     }
@@ -532,6 +536,9 @@ public final class ImsCallProfile implements Parcelable {
                 break;
             case CALL_TYPE_VOICE:
                 videostate = VideoProfile.STATE_AUDIO_ONLY;
+                break;
+            case CALL_TYPE_VT_NODIR:
+                videostate = VideoProfile.STATE_BIDIRECTIONAL | VideoProfile.STATE_PAUSED;
                 break;
             default:
                 videostate = VideoProfile.STATE_AUDIO_ONLY;

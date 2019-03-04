@@ -83,7 +83,7 @@ public class AudioManager {
     private final boolean mUseVolumeKeySounds;
     private final boolean mUseFixedVolume;
     private static final String TAG = "AudioManager";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = !"user".equals(Build.TYPE);
     private static final AudioPortEventHandler sAudioPortEventHandler = new AudioPortEventHandler();
 
     /**
@@ -1497,6 +1497,9 @@ public class AudioManager {
      * @see #ACTION_SCO_AUDIO_STATE_UPDATED
      */
     public void startBluetoothSco(){
+        if(DEBUG){
+            Log.d(TAG, "startBluetoothSco()");
+        }
         final IAudioService service = getService();
         try {
             service.startBluetoothSco(mICallBack,
@@ -1541,6 +1544,9 @@ public class AudioManager {
      */
     // Also used for connections started with {@link #startBluetoothScoVirtualCall()}
     public void stopBluetoothSco(){
+        if(DEBUG){
+            Log.d(TAG, "stopBluetoothSco()");
+        }
         final IAudioService service = getService();
         try {
             service.stopBluetoothSco(mICallBack);
@@ -1559,6 +1565,9 @@ public class AudioManager {
      *               <var>false</var> to not use bluetooth SCO for communications
      */
     public void setBluetoothScoOn(boolean on){
+        if(DEBUG){
+            Log.d(TAG, "setBluetoothScoOn(" + on + ")");
+        }
         final IAudioService service = getService();
         try {
             service.setBluetoothScoOn(on);
@@ -1574,6 +1583,9 @@ public class AudioManager {
      *         false if otherwise
      */
     public boolean isBluetoothScoOn() {
+        if(DEBUG){
+            Log.d(TAG, "isBluetoothScoOn()");
+        }
         final IAudioService service = getService();
         try {
             return service.isBluetoothScoOn();
@@ -3896,31 +3908,18 @@ public class AudioManager {
     }
 
      /**
-     * Indicate Hearing Aid connection state change and eventually suppress
-     * the {@link AudioManager.ACTION_AUDIO_BECOMING_NOISY} intent.
+     * Indicate Hearing Aid connection state change.
      * @param device Bluetooth device connected/disconnected
      * @param state new connection state (BluetoothProfile.STATE_xxx)
-     * @param musicDevice Default get system volume for the connecting device.
-     * (either {@link android.bluetooth.BluetoothProfile.hearingaid} or
-     * {@link android.bluetooth.BluetoothProfile.HEARING_AID})
-     * @param suppressNoisyIntent if true the
-     * {@link AudioManager.ACTION_AUDIO_BECOMING_NOISY} intent will not be sent.
-     * @return a delay in ms that the caller should wait before broadcasting
-     * BluetoothHearingAid.ACTION_CONNECTION_STATE_CHANGED intent.
      * {@hide}
      */
-    public int setBluetoothHearingAidDeviceConnectionState(
-                BluetoothDevice device, int state, boolean suppressNoisyIntent,
-                int musicDevice) {
+    public void setHearingAidDeviceConnectionState(BluetoothDevice device, int state) {
         final IAudioService service = getService();
-        int delay = 0;
         try {
-            delay = service.setBluetoothHearingAidDeviceConnectionState(device,
-                state, suppressNoisyIntent, musicDevice);
+            service.setHearingAidDeviceConnectionState(device, state);
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
-        return delay;
     }
 
      /**
@@ -4565,7 +4564,7 @@ public class AudioManager {
 
     /**
      * The message sent to apps when the contents of the device list changes if they provide
-     * a {@link Handler} object to addOnAudioDeviceConnectionListener().
+     * a {#link Handler} object to addOnAudioDeviceConnectionListener().
      */
     private final static int MSG_DEVICES_CALLBACK_REGISTERED = 0;
     private final static int MSG_DEVICES_DEVICES_ADDED = 1;

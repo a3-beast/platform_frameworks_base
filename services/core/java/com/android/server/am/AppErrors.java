@@ -52,6 +52,9 @@ import android.util.SparseArray;
 import android.util.TimeUtils;
 import android.util.proto.ProtoOutputStream;
 
+import com.mediatek.cta.CtaManager;
+import com.mediatek.cta.CtaManagerFactory;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -70,7 +73,7 @@ import static com.android.server.am.ActivityManagerService.SYSTEM_DEBUGGABLE;
 /**
  * Controls error conditions in applications.
  */
-class AppErrors {
+public class AppErrors {
 
     private static final String TAG = TAG_WITH_CLASS_NAME ? "AppErrors" : TAG_AM;
 
@@ -484,8 +487,7 @@ class AppErrors {
                                     task.intent, null, null, null, 0, 0,
                                     new SafeActivityOptions(ActivityOptions.makeBasic()),
                                     task.userId, null,
-                                    "AppErrors", false /*validateIncomingUser*/,
-                                    null /* originatingPendingIntent */);
+                                    "AppErrors", false /*validateIncomingUser*/);
                         }
                     }
                 }
@@ -841,6 +843,18 @@ class AppErrors {
             if ((mService.canShowErrorDialogs() || showBackground) && !crashSilenced
                     && (showFirstCrash || showFirstCrashDevOption || data.repeating)) {
                 proc.crashDialog = dialogToShow = new AppErrorDialog(mContext, mService, data);
+                /// M: CTA requirement - permission error dialog @{
+                String exceptionMsg = "";
+                if (proc.crashingReport != null) {
+                    exceptionMsg = proc.crashingReport.longMsg;
+                }
+                CtaManager manager = CtaManagerFactory.getInstance().makeCtaManager();
+                boolean display = manager.showPermErrorDialog(mContext,
+                        proc.uid, proc.processName, proc.info.packageName, exceptionMsg);
+                if (display) {
+                    return;
+                }
+                //@}
             } else {
                 // The device is asleep, so just pretend that the user
                 // saw a crash dialog and hit "force quit".
@@ -910,7 +924,6 @@ class AppErrors {
         // Unless configured otherwise, swallow ANRs in background processes & kill the process.
         boolean showBackground = Settings.Secure.getInt(mContext.getContentResolver(),
                 Settings.Secure.ANR_SHOW_BACKGROUND, 0) != 0;
-
         boolean isSilentANR;
 
         synchronized (mService) {
@@ -974,6 +987,10 @@ class AppErrors {
                 }
             }
         }
+        /// M: ANR Debug Mechanism
+        if (mService.mAnrManager.startAnrDump(mService, app, activity, parent, aboveSystem,
+                annotation, showBackground))
+            return;
 
         // Log the ANR to the main log.
         StringBuilder info = new StringBuilder();

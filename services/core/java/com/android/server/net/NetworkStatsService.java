@@ -110,6 +110,8 @@ import android.os.Messenger;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
+// M: modify for customiztion of MtkNetworkStatsService.java
+import android.os.SystemProperties;
 import android.os.Trace;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -140,10 +142,15 @@ import com.android.server.EventLogTags;
 import com.android.server.LocalServices;
 import com.android.server.connectivity.Tethering;
 
+// M: modify for customiztion of MtkNetworkStatsService.java
+import dalvik.system.PathClassLoader;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.PrintWriter;
+// M: modify for customiztion of MtkNetworkStatsService.java
+import java.lang.reflect.Constructor;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -156,14 +163,17 @@ import java.util.List;
  */
 public class NetworkStatsService extends INetworkStatsService.Stub {
     static final String TAG = "NetworkStats";
-    static final boolean LOGD = Log.isLoggable(TAG, Log.DEBUG);
-    static final boolean LOGV = Log.isLoggable(TAG, Log.VERBOSE);
+    private static final String PROP_FORCE_DEBUG_KEY = "persist.vendor.log.tel_dbg";
+    static final boolean LOGD = Log.isLoggable(TAG, Log.DEBUG)
+        ||(SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
+    static final boolean LOGV = Log.isLoggable(TAG, Log.VERBOSE)
+        ||(SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
+    private static final boolean ENG_DBG = LOGD
+        ||(SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
 
-    // Perform polling and persist all (FLAG_PERSIST_ALL).
     private static final int MSG_PERFORM_POLL = 1;
     private static final int MSG_UPDATE_IFACES = 2;
-    // Perform polling, persist network, and register the global alert again.
-    private static final int MSG_PERFORM_POLL_REGISTER_ALERT = 3;
+    private static final int MSG_REGISTER_GLOBAL_ALERT = 3;
 
     /** Flags to control detail level of poll event. */
     private static final int FLAG_PERSIST_NETWORK = 0x1;
@@ -171,20 +181,14 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
     private static final int FLAG_PERSIST_ALL = FLAG_PERSIST_NETWORK | FLAG_PERSIST_UID;
     private static final int FLAG_PERSIST_FORCE = 0x100;
 
-    /**
-     * When global alert quota is high, wait for this delay before processing each polling,
-     * and do not schedule further polls once there is already one queued.
-     * This avoids firing the global alert too often on devices with high transfer speeds and
-     * high quota.
-     */
-    private static final int PERFORM_POLL_DELAY_MS = 1000;
-
     private static final String TAG_NETSTATS_ERROR = "netstats_error";
 
-    private final Context mContext;
+    protected final Context mContext;
     private final INetworkManagementService mNetworkManager;
     private final AlarmManager mAlarmManager;
-    private final Clock mClock;
+    /// M: Modify for glue-layer
+    // private final Clock mClock;
+    private Clock mClock;
     private final TelephonyManager mTeleManager;
     private final NetworkStatsSettings mSettings;
     private final NetworkStatsObservers mStatsObservers;
@@ -252,11 +256,11 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
 
     /** Set of currently active ifaces. */
     @GuardedBy("mStatsLock")
-    private final ArrayMap<String, NetworkIdentitySet> mActiveIfaces = new ArrayMap<>();
+    protected final ArrayMap<String, NetworkIdentitySet> mActiveIfaces = new ArrayMap<>();
 
     /** Set of currently active ifaces for UID stats. */
     @GuardedBy("mStatsLock")
-    private final ArrayMap<String, NetworkIdentitySet> mActiveUidIfaces = new ArrayMap<>();
+    protected final ArrayMap<String, NetworkIdentitySet> mActiveUidIfaces = new ArrayMap<>();
 
     /** Current default active iface. */
     private String mActiveIface;
@@ -331,11 +335,45 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         PowerManager.WakeLock wakeLock =
                 powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
 
-        NetworkStatsService service = new NetworkStatsService(context, networkManager, alarmManager,
+        /// M: Mediatek add on for glue layer.
+        // M: modify for customiztion of MtkNetworkStatsService.java
+        /** M:
+         * Try to load MtkNetworkStatsService, if it is not
+         * existed, use AOSP NetworkStatsService @{
+         */
+        NetworkStatsService service = null;
+        try {
+            PathClassLoader pcLoader = new PathClassLoader(
+                    "/system/framework/mediatek-framework-net.jar",
+                    context.getClassLoader());
+            Class mtkNetworkStatsService = pcLoader.loadClass(
+                    "com.mediatek.server.MtkNetworkStatsService");
+            Constructor clazzConstructfunc = mtkNetworkStatsService.getConstructor(
+                    new Class[] {Context.class,
+                    android.os.INetworkManagementService.class,
+                    android.app.AlarmManager.class,
+                    android.os.PowerManager.WakeLock.class,
+                    java.time.Clock.class,
+                    android.telephony.TelephonyManager.class,
+                    com.android.server.net.NetworkStatsService.NetworkStatsSettings.class,
+                    com.android.server.net.NetworkStatsObservers.class,
+                    java.io.File.class,
+                    java.io.File.class});
+            clazzConstructfunc.setAccessible(true);
+            Object mtkNetworkStats = (Object) clazzConstructfunc.newInstance(context,
+                    networkManager, alarmManager, wakeLock, getDefaultClock(),
+                    TelephonyManager.getDefault(), new DefaultNetworkStatsSettings(context),
+                    new NetworkStatsObservers(), getDefaultSystemDir(), getDefaultBaseDir());
+            service = (NetworkStatsService)mtkNetworkStats;
+        }  catch (Exception e) {
+            Slog.e(TAG, "No MtkNetworkStatsService! Used AOSP for instead!", e);
+        }
+        if (service == null) {
+                service = new NetworkStatsService(context, networkManager, alarmManager,
                 wakeLock, getDefaultClock(), TelephonyManager.getDefault(),
                 new DefaultNetworkStatsSettings(context), new NetworkStatsObservers(),
                 getDefaultSystemDir(), getDefaultBaseDir());
-
+        }
         HandlerThread handlerThread = new HandlerThread(TAG);
         Handler.Callback callback = new HandlerCallback(service);
         handlerThread.start();
@@ -345,7 +383,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
     }
 
     @VisibleForTesting
-    NetworkStatsService(Context context, INetworkManagementService networkManager,
+    // M: modify for customiztion of MtkNetworkStatsService.java, make it protected
+    protected NetworkStatsService(Context context, INetworkManagementService networkManager,
             AlarmManager alarmManager, PowerManager.WakeLock wakeLock, Clock clock,
             TelephonyManager teleManager, NetworkStatsSettings settings,
             NetworkStatsObservers statsObservers, File systemDir, File baseDir) {
@@ -483,7 +522,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                 file.delete();
             }
         } catch (IOException e) {
-            Log.wtf(TAG, "problem during legacy upgrade", e);
+            Log.e(TAG, "problem during legacy upgrade", e);
         } catch (OutOfMemoryError e) {
             Log.wtf(TAG, "problem during legacy upgrade", e);
         }
@@ -626,6 +665,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
             public NetworkStats getSummaryForAllUid(
                     NetworkTemplate template, long start, long end, boolean includeTags) {
                 try {
+                    if (ENG_DBG) Log.d(TAG, "getSummaryForAllUid template:" + template);
                     final NetworkStats stats = getUidComplete()
                             .getSummary(template, start, end, mAccessLevel, mCallingUid);
                     if (includeTags) {
@@ -633,6 +673,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                                 .getSummary(template, start, end, mAccessLevel, mCallingUid);
                         stats.combineAllValues(tagStats);
                     }
+                    if (ENG_DBG) Log.d(TAG, "getSummaryForAllUid stats:" + stats);
                     return stats;
                 } catch (NullPointerException e) {
                     // TODO: Track down and fix the cause of this crash and remove this catch block.
@@ -712,6 +753,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
      */
     private NetworkStats internalGetSummaryForNetwork(NetworkTemplate template, int flags,
             long start, long end, @NetworkStatsAccess.Level int accessLevel, int callingUid) {
+            if (ENG_DBG) Log.d(TAG, "internalGetSummaryForNetwork template:" + template);
         // We've been using pure XT stats long enough that we no longer need to
         // splice DEV and XT together.
         final NetworkStatsHistory history = internalGetHistoryForNetwork(template, flags, FIELD_ALL,
@@ -733,6 +775,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
      */
     private NetworkStatsHistory internalGetHistoryForNetwork(NetworkTemplate template,
             int flags, int fields, @NetworkStatsAccess.Level int accessLevel, int callingUid) {
+            if (ENG_DBG) Log.d(TAG, "internalGetHistoryForNetwork template:" + template);
         // We've been using pure XT stats long enough that we no longer need to
         // splice DEV and XT together.
         final SubscriptionPlan augmentPlan = resolveSubscriptionPlan(template, flags);
@@ -746,7 +789,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
     private long getNetworkTotalBytes(NetworkTemplate template, long start, long end) {
         assertSystemReady();
         assertBandwidthControlEnabled();
-
+        if (ENG_DBG) Log.d(TAG, "getNetworkTotalBytes template:" + template);
         // NOTE: if callers want to get non-augmented data, they should go
         // through the public API
         return internalGetSummaryForNetwork(template,
@@ -878,7 +921,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         }
     }
 
-    private void advisePersistThreshold(long thresholdBytes) {
+    protected void advisePersistThreshold(long thresholdBytes) {
         assertBandwidthControlEnabled();
 
         // clamp threshold into safe range
@@ -926,7 +969,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         }
 
         // Create baseline stats
-        mHandler.sendMessage(mHandler.obtainMessage(MSG_PERFORM_POLL));
+        mHandler.sendMessage(mHandler.obtainMessage(MSG_PERFORM_POLL, FLAG_PERSIST_ALL));
 
         return normalizedRequest;
    }
@@ -951,13 +994,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
 
     @Override
     public long getIfaceStats(String iface, int type) {
-        // eBPF code doesn't provide per-interface TCP counters. Use xt_qtaguid for now.
-        // TODO: delete getMobileTcp(Rx|Tx)Packets entirely. See b/110443385 .
-        if (type == TYPE_TCP_TX_PACKETS || type == TYPE_TCP_RX_PACKETS) {
-            return nativeGetIfaceStat(iface, type, false);
-        } else {
-            return nativeGetIfaceStat(iface, type, checkBpfStatsEnable());
-        }
+        return nativeGetIfaceStat(iface, type, checkBpfStatsEnable());
     }
 
     @Override
@@ -1067,12 +1104,13 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
             mContext.enforceCallingOrSelfPermission(CONNECTIVITY_INTERNAL, TAG);
 
             if (LIMIT_GLOBAL_ALERT.equals(limitName)) {
-                // kick off background poll to collect network stats unless there is already
-                // such a call pending; UID stats are handled during normal polling interval.
-                if (!mHandler.hasMessages(MSG_PERFORM_POLL_REGISTER_ALERT)) {
-                    mHandler.sendEmptyMessageDelayed(MSG_PERFORM_POLL_REGISTER_ALERT,
-                            PERFORM_POLL_DELAY_MS);
-                }
+                // kick off background poll to collect network stats; UID stats
+                // are handled during normal polling interval.
+                final int flags = FLAG_PERSIST_NETWORK;
+                mHandler.obtainMessage(MSG_PERFORM_POLL, flags, 0).sendToTarget();
+
+                // re-arm global alert for next update
+                mHandler.obtainMessage(MSG_REGISTER_GLOBAL_ALERT).sendToTarget();
             }
         }
     };
@@ -1126,6 +1164,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
             // Caller is ConnectivityService. Update the list of default networks.
             mDefaultNetworks = defaultNetworks;
         }
+        // M: Add support for Multiple ViLTE
+        rebuildActiveVilteIfaceMap();
 
         final ArraySet<String> mobileIfaces = new ArraySet<>();
         for (NetworkState state : states) {
@@ -1134,7 +1174,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                 final boolean isDefault = ArrayUtils.contains(mDefaultNetworks, state.network);
                 final NetworkIdentity ident = NetworkIdentity.buildNetworkIdentity(mContext, state,
                         isDefault);
-
+                Slog.i(TAG, "NetworkIdentity: " + ident);
                 // Traffic occurring on the base interface is always counted for
                 // both total usage and UID details.
                 final String baseIface = state.linkProperties.getInterfaceName();
@@ -1147,6 +1187,9 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                     // If IMS is metered, then the IMS network usage has already included VT usage.
                     // VT is considered always metered in framework's layer. If VT is not metered
                     // per carrier's policy, modem will report 0 usage for VT calls.
+                    if (LOGV) {
+                        Slog.i(TAG, "state.networkCapabilities: " + state.networkCapabilities);
+                    }
                     if (state.networkCapabilities.hasCapability(
                             NetworkCapabilities.NET_CAPABILITY_IMS) && !ident.getMetered()) {
 
@@ -1155,8 +1198,13 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                                 ident.getSubType(), ident.getSubscriberId(), ident.getNetworkId(),
                                 ident.getRoaming(), true /* metered */,
                                 true /* onDefaultNetwork */);
-                        findOrCreateNetworkIdentitySet(mActiveIfaces, VT_INTERFACE).add(vtIdent);
-                        findOrCreateNetworkIdentitySet(mActiveUidIfaces, VT_INTERFACE).add(vtIdent);
+                        // M: For Multiple ViLTE, Separate VT_INTERFACE according to subId
+                        if (!findOrCreateMultipleVilteNetworkIdentitySets(vtIdent)) {
+                            findOrCreateNetworkIdentitySet(mActiveIfaces,
+                                                           VT_INTERFACE).add(vtIdent);
+                            findOrCreateNetworkIdentitySet(mActiveUidIfaces,
+                                                           VT_INTERFACE).add(vtIdent);
+                        }
                     }
 
                     if (isMobile) {
@@ -1182,11 +1230,33 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
                 }
             }
         }
+        if(ENG_DBG) {
+            for (int i = 0; i < mActiveIfaces.size(); i++) {
+                Slog.i(TAG, "iface:" + mActiveIfaces.keyAt(i));
+                for( NetworkIdentity id : mActiveIfaces.valueAt(i)) {
+                    Slog.i(TAG, "ident:" + id );
+                }
+            }
+        }
 
-        mMobileIfaces = mobileIfaces.toArray(new String[mobileIfaces.size()]);
+        // mMobileIfaces = mobileIfaces.toArray(new String[mobileIfaces.size()]);
+        // Bugfix: Any ifaces associated with mobile networks since boot, event disconnected
+        for( String iface : mobileIfaces) {
+            if ( iface != null && !ArrayUtils.contains(mMobileIfaces, iface)) {
+                    mMobileIfaces = ArrayUtils.appendElement(String.class, mMobileIfaces, iface);
+            }
+        }
     }
 
-    private static <K> NetworkIdentitySet findOrCreateNetworkIdentitySet(
+    // M: Add support for Multiple ViLTE
+    protected void rebuildActiveVilteIfaceMap() {
+    }
+
+    protected boolean findOrCreateMultipleVilteNetworkIdentitySets(NetworkIdentity vtident) {
+        return false;
+    }
+
+    protected static <K> NetworkIdentitySet findOrCreateNetworkIdentitySet(
             ArrayMap<K, NetworkIdentitySet> map, K key) {
         NetworkIdentitySet ident = map.get(key);
         if (ident == null) {
@@ -1622,8 +1692,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         // fold tethering stats and operations into uid snapshot
         final NetworkStats tetherSnapshot = getNetworkStatsTethering(STATS_PER_UID);
         tetherSnapshot.filter(UID_ALL, ifaces, TAG_ALL);
-        NetworkStatsFactory.apply464xlatAdjustments(uidSnapshot, tetherSnapshot,
-                mUseBpfTrafficStats);
+        NetworkStatsFactory.apply464xlatAdjustments(uidSnapshot, tetherSnapshot);
         uidSnapshot.combineAllValues(tetherSnapshot);
 
         final TelephonyManager telephonyManager = (TelephonyManager) mContext.getSystemService(
@@ -1633,8 +1702,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         final NetworkStats vtStats = telephonyManager.getVtDataUsage(STATS_PER_UID);
         if (vtStats != null) {
             vtStats.filter(UID_ALL, ifaces, TAG_ALL);
-            NetworkStatsFactory.apply464xlatAdjustments(uidSnapshot, vtStats,
-                    mUseBpfTrafficStats);
+            NetworkStatsFactory.apply464xlatAdjustments(uidSnapshot, vtStats);
             uidSnapshot.combineAllValues(vtStats);
         }
 
@@ -1669,7 +1737,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
         try {
             return mNetworkManager.getNetworkStatsTethering(how);
         } catch (IllegalStateException e) {
-            Log.wtf(TAG, "problem reading network stats", e);
+            Log.e(TAG, "problem reading network stats", e);
             return new NetworkStats(0L, 10);
         }
     }
@@ -1684,17 +1752,18 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
 
         @Override
         public boolean handleMessage(Message msg) {
+            if (LOGV) Log.v(TAG, "handleMessage(): msg=" + msg.what);
             switch (msg.what) {
                 case MSG_PERFORM_POLL: {
-                    mService.performPoll(FLAG_PERSIST_ALL);
+                    final int flags = msg.arg1;
+                    mService.performPoll(flags);
                     return true;
                 }
                 case MSG_UPDATE_IFACES: {
                     mService.updateIfaces(null);
                     return true;
                 }
-                case MSG_PERFORM_POLL_REGISTER_ALERT: {
-                    mService.performPoll(FLAG_PERSIST_NETWORK);
+                case MSG_REGISTER_GLOBAL_ALERT: {
                     mService.registerGlobalAlert();
                     return true;
                 }

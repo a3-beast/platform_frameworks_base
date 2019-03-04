@@ -66,6 +66,8 @@ interface ITelephonyRegistry {
     void notifyDisconnectCause(int disconnectCause, int preciseDisconnectCause);
     void notifyPreciseDataConnectionFailed(String reason, String apnType, String apn,
             String failCause);
+    void notifyPreciseDataConnectionFailedForSubscriber(in int subId, String reason,
+            String apnType, String apn, String failCause);
     void notifyCellInfoForSubscriber(in int subId, in List<CellInfo> cellInfo);
     void notifyVoLteServiceStateChanged(in VoLteServiceState lteState);
     void notifySimActivationStateChangedForPhoneId(in int phoneId, in int subId,

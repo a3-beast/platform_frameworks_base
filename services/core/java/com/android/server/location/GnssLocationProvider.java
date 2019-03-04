@@ -103,6 +103,12 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
+/// M: [Reflection] Launch location extension by reflection
+import android.os.Build;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+/// M: mtk add end
+
 /**
  * A GNSS implementation of LocationProvider used by LocationManager.
  *
@@ -113,8 +119,18 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
 
     private static final String TAG = "GnssLocationProvider";
 
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-    private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
+    /// M: [Debug] enhance the location logs
+    private static final boolean IS_USER_BUILD =
+            "user".equals(Build.TYPE) || "userdebug".equals(Build.TYPE);
+    private static final String PROP_FORCE_DEBUG_KEY = "persist.vendor.log.tel_dbg";
+    public static final boolean FORCE_DEBUG =
+            (SystemProperties.getInt(PROP_FORCE_DEBUG_KEY, 0) == 1);
+
+    private static final boolean DEBUG = IS_USER_BUILD ?
+            (Log.isLoggable(TAG, Log.DEBUG) || FORCE_DEBUG) : true;
+    private static final boolean VERBOSE = IS_USER_BUILD ?
+            (Log.isLoggable(TAG, Log.VERBOSE) || FORCE_DEBUG) : true;
+    /// M: mtk add end
 
     private static final ProviderProperties PROPERTIES = new ProviderProperties(
             true, true, false, false, true, true, true,
@@ -254,7 +270,7 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
     // 1 second, or 1 Hz frequency.
     private static final long LOCATION_UPDATE_MIN_TIME_INTERVAL_MILLIS = 1000;
     // Default update duration in milliseconds for REQUEST_LOCATION.
-    private static final long LOCATION_UPDATE_DURATION_MILLIS = 10 * 1000;
+    private static final long LOCATION_UPDATE_DURATION_MILLIS = 0;
 
     /** simpler wrapper for ProviderRequest + Worksource */
     private static class GpsRequest {
@@ -642,6 +658,9 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
         }
         if (disableGps != mDisableGps) {
             mDisableGps = disableGps;
+            /// M: [Debug] log low power mode triggered gps update requirements
+            Log.d(TAG, "updateRequirements trigger by low power mode disableGps =" + disableGps);
+            /// M: mtk add end
             updateRequirements();
         }
     }
@@ -839,6 +858,10 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
         mHandler.post(mGnssSatelliteBlacklistHelper::updateSatelliteBlacklist);
         mGnssBatchingProvider = new GnssBatchingProvider();
         mGnssGeofenceProvider = new GnssGeofenceProvider(looper);
+
+        /// M: [Reflection] Init Mtk Gnss location provder ext
+        initMtkGnssLocProvider();
+        /// M: mtk add end
     }
 
     /**
@@ -1009,6 +1032,10 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
             // For fast GNSS TTFF
             provider = LocationManager.NETWORK_PROVIDER;
             locationListener = mNetworkLocationListener;
+
+            /// M: [Improve TTFF] Inject last known NLP location
+            mtkInjectLastKnownLocation();
+            /// M: mtk add end
         } else {
             // For Device-Based Hybrid (E911)
             provider = LocationManager.FUSED_PROVIDER;
@@ -1144,10 +1171,13 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
      */
     @Override
     public void enable() {
-        synchronized (mLock) {
-            if (mEnabled) return;
-            mEnabled = true;
-        }
+        /// M: [Race Condition] Move mEnabled flag setting into handleEnable
+        //  to avoid startNavicating before handleEnable.
+        //synchronized (mLock) {
+        //    if (mEnabled) return;
+        //    mEnabled = true;
+        //}
+        /// M: mtk added end
 
         sendMessage(ENABLE, 1, null);
     }
@@ -1211,6 +1241,14 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
     private void handleEnable() {
         if (DEBUG) Log.d(TAG, "handleEnable");
 
+        /// M: [Race Condition] Move mEnabled flag setting into handleEnable
+        //  to avoid startNavicating before handleEnable.
+        synchronized (mLock) {
+            if (mEnabled) return;
+            mEnabled = true;
+        }
+        /// M: mtk add end
+
         boolean enabled = native_init();
 
         if (enabled) {
@@ -1242,16 +1280,27 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
      */
     @Override
     public void disable() {
-        synchronized (mLock) {
-            if (!mEnabled) return;
-            mEnabled = false;
-        }
+        /// M: [Race Condition] Move mEnabled flag setting into handleDisable
+        //  to avoid stopNavicating before handleDisable.
+        //synchronized (mLock) {
+        //    if (!mEnabled) return;
+        //    mEnabled = false;
+        //}
+        /// M: mtk add end
 
         sendMessage(ENABLE, 0, null);
     }
 
     private void handleDisable() {
         if (DEBUG) Log.d(TAG, "handleDisable");
+
+        /// M: [Race Condition] Move mEnabled flag setting into handleDisable
+        //  to avoid stopNavicating before handleDisable.
+        synchronized (mLock) {
+            if (!mEnabled) return;
+            mEnabled = false;
+        }
+        /// M: mtk add end
 
         updateClientUids(new WorkSource());
         stopNavigating();
@@ -1324,7 +1373,9 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
             }
         }
 
-        if (DEBUG) Log.d(TAG, "setRequest " + mProviderRequest);
+        /// M: [Debug] always log gps setRequest
+        Log.d(TAG, "setRequest " + mProviderRequest);
+        /// M: mtk add end
         if (mProviderRequest.reportLocation && !mDisableGps && isEnabled()) {
             // update client uids
             updateClientUids(mWorkSource);
@@ -1474,6 +1525,10 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
             if (extras.getBoolean("all")) flags |= GPS_DELETE_ALL;
         }
 
+        /// M: [VZW] Add more deleting aiding data extra check
+        flags = mtkDeleteAidingData(extras, flags);
+        /// M: mtk add end
+
         if (flags != 0) {
             native_delete_aiding_data(flags);
             return true;
@@ -1484,7 +1539,10 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
 
     private void startNavigating(boolean singleShot) {
         if (!mStarted) {
-            if (DEBUG) Log.d(TAG, "startNavigating, singleShot is " + singleShot);
+            /// M: [Debug] always log and add request info
+            Log.d(TAG, "startNavigating, singleShot is " + singleShot +
+                    " setRequest: " + mProviderRequest);
+            /// M: mtk add end
             mTimeToFirstFix = 0;
             mLastFixTime = 0;
             mStarted = true;
@@ -1630,7 +1688,9 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
         // report time to first fix
         if (mTimeToFirstFix == 0 && hasLatLong) {
             mTimeToFirstFix = (int) (mLastFixTime - mFixRequestTime);
-            if (DEBUG) Log.d(TAG, "TTFF: " + mTimeToFirstFix);
+            /// M: [Debug] always log GPS TTFF.
+            Log.d(TAG, "TTFF: " + mTimeToFirstFix);
+            /// M: mtk add end
             if (mStarted) {
                 mGnssMetrics.logTimeToFirstFixMilliSecs(mTimeToFirstFix);
             }
@@ -2789,5 +2849,72 @@ public class GnssLocationProvider implements LocationProviderInterface, InjectNt
     private static native boolean native_set_emergency_supl_pdn(int emergencySuplPdn);
 
     private static native boolean native_set_satellite_blacklist(int[] constellations, int[] svIds);
+
+    //M: MTK add start
+    private static final int GPS_DELETE_HOT_STILL = 0x2000;
+    private static final int GPS_DELETE_EPO = 0x4000;
+    private static final int LAST_LOCATION_EXPIRED_TIMEOUT = (10*60*1000); //ms
+
+    private Class<?> mMtkGnssProviderClass = null;
+    private Object mMtkGnssProvider = null;
+
+    /// M: [Reflection] MTK gnssLocProvider creation function by java reflection.
+    // It can avoid build fail when the MTK location extension is not existed.
+    private void initMtkGnssLocProvider() {
+        boolean mtkGpsSupport = SystemProperties.get("ro.vendor.mtk_gps_support").equals("1");
+
+        if (mtkGpsSupport) {
+            String className = "com.mediatek.location.MtkLocationExt$GnssLocationProvider";
+            Class<?> clazz = null;
+            try {
+                mMtkGnssProviderClass = Class.forName(className);
+                if (DEBUG) Log.d(TAG, "class = " + mMtkGnssProviderClass);
+                if (mMtkGnssProviderClass != null) {
+                    Constructor constructor = mMtkGnssProviderClass.getConstructor(
+                            new Class[] {Context.class, Handler.class});
+                    if (constructor != null) {
+                        mMtkGnssProvider = constructor.newInstance(
+                                new Object[] {mContext, mHandler});
+                    }
+                }
+                Log.d(TAG, "mMtkGnssProvider = " + mMtkGnssProvider);
+                mDownloadXtraDataPending = STATE_IDLE; // no download
+                mNtpTimeHelper.setNtpTimeStateIdle();
+            } catch (Exception  e) {
+                Log.w(TAG, "Failed to init mMtkGnssProvider!");
+            }
+        }
+    }
+
+    /// M: [VZW] Delete mtk defined aiding data such as EPO and hot-still.
+    //  It's operator requirements to delete these data by flags.
+    private int mtkDeleteAidingData(Bundle extras, int flags) {
+        if (mMtkGnssProvider != null) {
+            if (extras != null) {
+               if (extras.getBoolean("hot-still")) flags |= GPS_DELETE_HOT_STILL;
+               if (extras.getBoolean("epo")) flags |= GPS_DELETE_EPO;
+            }
+            Log.d(TAG, "mtkDeleteAidingData extras:" + extras + "flags:" + flags);
+        }
+        return flags;
+    }
+
+    /// M: [Improve TTFF] Inject last known NLP location first
+    private void mtkInjectLastKnownLocation() {
+        if (mMtkGnssProvider != null) {
+            LocationManager locationManager = (LocationManager) mContext.getSystemService(
+                    Context.LOCATION_SERVICE);
+            Location lastLocation = locationManager.
+                    getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            if (lastLocation != null) {
+                long currentUtcTime = System.currentTimeMillis();
+                long nlpTime = lastLocation.getTime();
+                long deltaMs = currentUtcTime - nlpTime;
+                if (deltaMs < LAST_LOCATION_EXPIRED_TIMEOUT && isDataNetworkConnected()) {
+                    mHandler.obtainMessage(UPDATE_LOCATION, 0, 0, lastLocation).sendToTarget();
+                }
+            }
+        }
+    }
 }
 

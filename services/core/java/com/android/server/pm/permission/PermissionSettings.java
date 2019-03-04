@@ -39,6 +39,9 @@ import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.Set;
 
+import com.mediatek.cta.CtaManager;
+import com.mediatek.cta.CtaManagerFactory;
+
 /**
  * Permissions and other related data. This class is not meant for
  * direct access outside of the permission package with the sole exception
@@ -82,9 +85,15 @@ public class PermissionSettings {
 
     private final Object mLock;
 
+    /**M: ==========CTA requirement - review UI for all apps==============@{**/
+    private static final CtaManager sCtaManager = CtaManagerFactory.getInstance().makeCtaManager();
+
     PermissionSettings(@NonNull Context context, @NonNull Object lock) {
+        /// M: CTA requirement - permission control  @{
         mPermissionReviewRequired =
-                context.getResources().getBoolean(R.bool.config_permissionReviewRequired);
+            sCtaManager.isCtaSupported() ? true :
+            context.getResources().getBoolean(R.bool.config_permissionReviewRequired);
+        //@}
         mLock = lock;
     }
 

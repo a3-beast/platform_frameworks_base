@@ -43,6 +43,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+// MTK-START
+import java.lang.reflect.Method;
+import java.lang.reflect.Constructor;
+// MTK-END
+
 /*
  * TODO(code review): Curious question... Why are a lot of these
  * methods not declared as static, since they do not seem to require
@@ -935,6 +940,9 @@ public final class SmsManager {
             Log.e(TAG, "Exception in getSubscriptionId");
         }
 
+        // MTK-START
+        isSmsSimPickActivityNeeded = checkSimPickActivityNeeded(isSmsSimPickActivityNeeded);
+        // MTK-END
         if (isSmsSimPickActivityNeeded) {
             Log.d(TAG, "getSubscriptionId isSmsSimPickActivityNeeded is true");
             // ask the user for a default SMS SIM.
@@ -2072,4 +2080,28 @@ public final class SmsManager {
         return filtered;
     }
 
+    // MTK-START
+    private boolean checkSimPickActivityNeeded(boolean needed) {
+        String className = "mediatek.telephony.MtkSmsManager";
+        Class<?> clazz = null;
+        boolean result = needed;
+        try {
+            clazz = Class.forName(className);
+            if (clazz != null) {
+                Method clazzMethod = clazz.getDeclaredMethod("checkSimPickActivityNeeded",
+                        boolean.class);
+                if (clazzMethod != null) {
+                    result = (boolean)clazzMethod.invoke(null, result);
+                } else {
+                    Rlog.e(TAG, "checkSimPickActivityNeeded() does not exist!");
+                }
+            } else {
+                Rlog.e(TAG, "MtkSmsManager does not exist!");
+            }
+        } catch (Exception e) {
+            Rlog.e(TAG, "checkSimPickActivityNeeded() does not exist! " + e);
+        }
+        return result;
+    }
+    // MTK-END
 }

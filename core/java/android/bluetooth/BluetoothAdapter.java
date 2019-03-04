@@ -104,7 +104,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public final class BluetoothAdapter {
     private static final String TAG = "BluetoothAdapter";
     private static final boolean DBG = true;
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = SystemProperties
+                                     .get("persist.vendor.bluetooth.hostloglevel","").equals("sqc");
 
     /**
      * Default MAC address reported to a client that does not have the
@@ -1101,6 +1102,7 @@ public final class BluetoothAdapter {
         try {
             mServiceLock.readLock().lock();
             if (mService != null) {
+                disable();
                 return mService.factoryReset();
             }
             SystemProperties.set("persist.bluetooth.factoryreset", "true");
@@ -2797,7 +2799,7 @@ public final class BluetoothAdapter {
      * socket will be encrypted.
      * <p>Use {@link BluetoothServerSocket#accept} to retrieve incoming connections from a listening
      * {@link BluetoothServerSocket}.
-     * <p>The system will assign a dynamic PSM value. This PSM value can be read from the {@link
+     * <p>The system will assign a dynamic PSM value. This PSM value can be read from the {#link
      * BluetoothServerSocket#getPsm()} and this value will be released when this server socket is
      * closed, Bluetooth is turned off, or the application exits unexpectedly.
      * <p>The mechanism of disclosing the assigned dynamic PSM value to the initiating peer is
@@ -2847,7 +2849,7 @@ public final class BluetoothAdapter {
      * <p>Use {@link BluetoothServerSocket#accept} to retrieve incoming connections from a listening
      * {@link BluetoothServerSocket}.
      * <p>The system will assign a dynamic protocol/service multiplexer (PSM) value. This PSM value
-     * can be read from the {@link BluetoothServerSocket#getPsm()} and this value will be released
+     * can be read from the {#link BluetoothServerSocket#getPsm()} and this value will be released
      * when this server socket is closed, Bluetooth is turned off, or the application exits
      * unexpectedly.
      * <p>The mechanism of disclosing the assigned dynamic PSM value to the initiating peer is

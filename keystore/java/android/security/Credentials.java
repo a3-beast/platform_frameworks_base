@@ -126,6 +126,42 @@ public class Credentials {
      */
     public static final String EXTRA_CA_CERTIFICATES_DATA = "ca_certificates_data";
 
+    /// M: Add for MTK WAPI certificate start @{
+    /**
+     * Key prefix for WAPI server certificate.
+     * @internal
+     */
+    public static final String WAPI_SERVER_CERTIFICATE = "WAPISERVERCERT_";
+    /**
+     * Intent extra: name for the WAPI as server's certificate.
+     * @internal
+     */
+    public static final String EXTRA_WAPI_SERVER_CERTIFICATE_NAME = "wapi_server_certificate_name";
+
+    /**
+     * Intent extra: data for the WAPI as server's certificate .
+     * @internal
+     */
+    public static final String EXTRA_WAPI_SERVER_CERTIFICATE_DATA = "wapi_server_certificate_data";
+
+    /**
+     * Key prefix for WAPI user certificate (including private key).
+     * @internal
+     */
+    public static final String WAPI_USER_CERTIFICATE = "WAPIUSERCERT_";
+    /**
+     * Intent extra: name for the user's certificate.
+     * @internal
+     */
+    public static final String EXTRA_WAPI_USER_CERTIFICATE_NAME = "wapi_user_certificate_name";
+
+    /**
+     * Intent extra: data for the wapi user's certificate .
+     * @internal
+     */
+    public static final String EXTRA_WAPI_USER_CERTIFICATE_DATA = "wapi_user_certificate_data";
+    /// Add for MTK WAPI certificate end. @}
+
     /**
      * Convert objects to a PEM format which is used for
      * CA_CERTIFICATE and USER_CERTIFICATE entries.

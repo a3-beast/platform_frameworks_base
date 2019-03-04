@@ -154,6 +154,11 @@ static jlong getTotalStat(JNIEnv* env, jclass clazz, jint type, jboolean useBpfS
     struct Stats stats;
     memset(&stats, 0, sizeof(Stats));
 
+    /// M:{ ALPS04048920 ALPS04015674 bpf will not count TCP type, need use elder API
+    if ((StatsType) type == TCP_RX_PACKETS || (StatsType) type == TCP_TX_PACKETS) {
+        useBpfStats = 0;
+    }
+    /// @}
     if (useBpfStats) {
         if (bpfGetIfaceStats(NULL, &stats) == 0) {
             return getStatsType(&stats, (StatsType) type);
@@ -178,7 +183,11 @@ static jlong getIfaceStat(JNIEnv* env, jclass clazz, jstring iface, jint type,
 
     struct Stats stats;
     memset(&stats, 0, sizeof(Stats));
-
+    /// M:{ ALPS04048920 ALPS04015674 bpf will not count TCP type, need use elder API
+    if ((StatsType) type == TCP_RX_PACKETS || (StatsType) type == TCP_TX_PACKETS) {
+        useBpfStats = 0;
+    }
+    /// @}
     if (useBpfStats) {
         if (bpfGetIfaceStats(iface8.c_str(), &stats) == 0) {
             return getStatsType(&stats, (StatsType) type);
@@ -197,7 +206,11 @@ static jlong getIfaceStat(JNIEnv* env, jclass clazz, jstring iface, jint type,
 static jlong getUidStat(JNIEnv* env, jclass clazz, jint uid, jint type, jboolean useBpfStats) {
     struct Stats stats;
     memset(&stats, 0, sizeof(Stats));
-
+    /// M:{ ALPS04048920 ALPS04015674 bpf will not count TCP type, need use elder API
+    if ((StatsType) type == TCP_RX_PACKETS || (StatsType) type == TCP_TX_PACKETS) {
+        useBpfStats = 0;
+    }
+    /// @}
     if (useBpfStats) {
         if (bpfGetUidStats(uid, &stats) == 0) {
             return getStatsType(&stats, (StatsType) type);

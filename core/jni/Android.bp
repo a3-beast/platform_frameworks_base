@@ -42,7 +42,6 @@ cc_library_shared {
         "com_google_android_gles_jni_EGLImpl.cpp",
         "com_google_android_gles_jni_GLImpl.cpp", // TODO: .arm
         "android_app_Activity.cpp",
-	"android_app_ActivityThread.cpp",
         "android_app_NativeActivity.cpp",
         "android_app_admin_SecurityLog.cpp",
         "android_opengl_EGL14.cpp",
@@ -148,7 +147,6 @@ cc_library_shared {
         "android/graphics/PathMeasure.cpp",
         "android/graphics/PathEffect.cpp",
         "android/graphics/Picture.cpp",
-        "android/graphics/BitmapRegionDecoder.cpp",
         "android/graphics/Region.cpp",
         "android/graphics/Shader.cpp",
         "android/graphics/SurfaceTexture.cpp",
@@ -308,4 +306,56 @@ cc_library_shared {
         // GraphicsJNI.h includes hwui headers
         "libhwui",
     ],
+
+    product_variables: {
+        debuggable: {
+            cflags: ["-D__ANDROID_DEBUGGABLE__"]
+        },
+        eng: {
+            cflags: ["-DMTK_ENG_BUILD"]
+        },
+    },
+    defaults: [
+        "mtk_libandroid_runtime_defaults",
+		"mtk_jpeg_enhance_art_defaults",
+    ],
+}
+
+bootstrap_go_package {
+    name:"soong-omadrm-mediatek",
+    pkgPath:"android/soong/omadrm/mediatek",
+    deps:[
+        "soong-android",
+        "soong-cc",
+    ],
+    srcs:[
+        "omadrm.go",
+    ],
+    pluginFor:["soong_build"],
+}
+
+mtk_libandroid_runtime_defaults {
+    name: "mtk_libandroid_runtime_defaults",
+}
+
+bootstrap_go_package {
+    name: "soon-jpegenhance-art",
+    pkgPath: "android/soong/jpegenhance-art",
+    deps: [
+        "blueprint",
+        "blueprint-pathtools",
+        "soong",
+        "soong-android",
+        "soong-cc",
+        "soong-genrule",
+		"soong-android-mediatek",
+    ],
+    srcs: [
+        "mtkjpeg.go",
+    ],
+    pluginFor: ["soong_build"],
+}
+
+mtk_jpeg_enhance_art_defaults {
+    name: "mtk_jpeg_enhance_art_defaults",
 }

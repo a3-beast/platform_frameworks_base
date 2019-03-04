@@ -68,6 +68,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import java.lang.reflect.Method;
+
+// MTK-START: MTK signal Strength
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
+// MTK-END
 /**
  * Since phone process can be restarted, this class provides a centralized place
  * that applications can register and be called back from.
@@ -87,6 +94,29 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
     private static final boolean DBG = false; // STOPSHIP if true
     private static final boolean DBG_LOC = false; // STOPSHIP if true
     private static final boolean VDBG = false; // STOPSHIP if true
+
+    private static Method sMethodIdMatchEx;
+
+    static {
+        Class<?> clz = null;
+        try {
+            clz = Class.forName("com.mediatek.internal.telephony.MtkTelephonyRegistryEx");
+        } catch (Exception e) {
+            e.printStackTrace();
+            log(e.toString());
+        }
+
+        if (clz != null) {
+            try {
+                sMethodIdMatchEx = clz.getDeclaredMethod("idMatchEx",
+                        int.class, int.class, int.class, int.class, int.class);
+                sMethodIdMatchEx.setAccessible(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+                log(e.toString());
+            }
+        }
+    }
 
     private static class Record {
         Context context;
@@ -202,8 +232,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
 
     private final LocalLog mLocalLog = new LocalLog(100);
 
-    private PreciseDataConnectionState mPreciseDataConnectionState =
-                new PreciseDataConnectionState();
+    private PreciseDataConnectionState[] mPreciseDataConnectionState;
 
     static final int ENFORCE_COARSE_LOCATION_PERMISSION_MASK =
             PhoneStateListener.LISTEN_CELL_LOCATION
@@ -337,6 +366,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
         mCellLocation = new Bundle[numPhones];
         mCellInfo = new ArrayList<List<CellInfo>>();
         mPhysicalChannelConfigs = new ArrayList<List<PhysicalChannelConfig>>();
+        mPreciseDataConnectionState = new PreciseDataConnectionState[numPhones];
         for (int i = 0; i < numPhones; i++) {
             mCallState[i] =  TelephonyManager.CALL_STATE_IDLE;
             mDataActivity[i] = TelephonyManager.DATA_ACTIVITY_NONE;
@@ -344,14 +374,19 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
             mVoiceActivationState[i] = TelephonyManager.SIM_ACTIVATION_STATE_UNKNOWN;
             mDataActivationState[i] = TelephonyManager.SIM_ACTIVATION_STATE_UNKNOWN;
             mCallIncomingNumber[i] =  "";
-            mServiceState[i] =  new ServiceState();
-            mSignalStrength[i] =  new SignalStrength();
+            // MTK-START: MTK service state
+            mServiceState[i] =  makeServiceState();
+            // MTK-END
+            // MTK-START: MTK signal Strength
+            mSignalStrength[i] =  makeSignalStrength(i);
+            // MTK-END
             mUserMobileDataState[i] = false;
             mMessageWaiting[i] =  false;
             mCallForwarding[i] =  false;
             mCellLocation[i] = new Bundle();
             mCellInfo.add(i, null);
             mPhysicalChannelConfigs.add(i, new ArrayList<PhysicalChannelConfig>());
+            mPreciseDataConnectionState[i] = new PreciseDataConnectionState();
         }
 
         // Note that location can be null for non-phone builds like
@@ -515,8 +550,10 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                     if ((events & PhoneStateListener.LISTEN_SERVICE_STATE) != 0) {
                         try {
                             if (VDBG) log("listen: call onSSC state=" + mServiceState[phoneId]);
+                            // MTK-START: MTK service state
                             r.callback.onServiceStateChanged(
-                                    new ServiceState(mServiceState[phoneId]));
+                                    makeServiceState(mServiceState[phoneId]));
+                            // MTK-END
                         } catch (RemoteException ex) {
                             remove(r.binder);
                         }
@@ -616,8 +653,15 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                     }
                     if ((events & PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE) != 0) {
                         try {
+                            PreciseDataConnectionState pdcs = mPreciseDataConnectionState[phoneId];
                             r.callback.onPreciseDataConnectionStateChanged(
-                                    mPreciseDataConnectionState);
+                                    new PreciseDataConnectionState(pdcs.getDataConnectionState(),
+                                    pdcs.getDataConnectionNetworkType(),
+                                    pdcs.getDataConnectionAPNType(),
+                                    pdcs.getDataConnectionAPN(),
+                                    pdcs.getDataConnectionChangeReason(),
+                                    pdcs.getDataConnectionLinkProperties(),
+                                    pdcs.getDataConnectionFailCause()));
                         } catch (RemoteException ex) {
                             remove(r.binder);
                         }
@@ -821,7 +865,9 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                                         + " subId=" + subId + " phoneId=" + phoneId
                                         + " state=" + state);
                             }
-                            r.callback.onServiceStateChanged(new ServiceState(state));
+                            // MTK-START: MTK service state
+                            r.callback.onServiceStateChanged(makeServiceState(state));
+                            // MTK-END
                         } catch (RemoteException ex) {
                             mRemoveList.add(r.binder);
                         }
@@ -924,7 +970,10 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                                         + " subId=" + subId + " phoneId=" + phoneId
                                         + " ss=" + signalStrength);
                             }
-                            r.callback.onSignalStrengthsChanged(new SignalStrength(signalStrength));
+                            // MTK-START: MTK signal strength
+                            r.callback.onSignalStrengthsChanged(
+                                    makeSignalStrength(phoneId, signalStrength));
+                            // MTK-END
                         } catch (RemoteException ex) {
                             mRemoveList.add(r.binder);
                         }
@@ -1153,7 +1202,8 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                 for (Record r : mRecords) {
                     // Notify by correct subId.
                     if (r.matchPhoneStateListenerEvent(PhoneStateListener.LISTEN_DATA_ACTIVITY) &&
-                            idMatch(r.subId, subId, phoneId)) {
+                            /*idMatch(r.subId, subId, phoneId)*/
+                            idMatchEx(r.subId, subId, r.phoneId, phoneId)) {
                         try {
                             r.callback.onDataActivity(state);
                         } catch (RemoteException ex) {
@@ -1195,14 +1245,15 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                 if (PhoneConstants.APN_TYPE_DEFAULT.equals(apnType)
                         && (mDataConnectionState[phoneId] != state
                         || mDataConnectionNetworkType[phoneId] != networkType)) {
-                    String str = "onDataConnectionStateChanged(" + state
+                    String str = "[" + phoneId + "]" + "onDataConnectionStateChanged(" + state
                             + ", " + networkType + ")";
                     log(str);
                     mLocalLog.log(str);
                     for (Record r : mRecords) {
                         if (r.matchPhoneStateListenerEvent(
                                 PhoneStateListener.LISTEN_DATA_CONNECTION_STATE) &&
-                                idMatch(r.subId, subId, phoneId)) {
+                                /*idMatch(r.subId, subId, phoneId)*/
+                                idMatchEx(r.subId, subId, r.phoneId, phoneId)) {
                             try {
                                 if (DBG) {
                                     log("Notify data connection state changed on sub: " + subId);
@@ -1218,14 +1269,15 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                     mDataConnectionState[phoneId] = state;
                     mDataConnectionNetworkType[phoneId] = networkType;
                 }
-                mPreciseDataConnectionState = new PreciseDataConnectionState(state, networkType,
-                        apnType, apn, reason, linkProperties, "");
+                mPreciseDataConnectionState[phoneId] = new PreciseDataConnectionState(
+                        state, networkType, apnType, apn, reason, linkProperties, "");
                 for (Record r : mRecords) {
                     if (r.matchPhoneStateListenerEvent(
-                            PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE)) {
+                            PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE) &&
+                            idMatchEx(r.subId, subId, r.phoneId, phoneId)) {
                         try {
                             r.callback.onPreciseDataConnectionStateChanged(
-                                    mPreciseDataConnectionState);
+                                    mPreciseDataConnectionState[phoneId]);
                         } catch (RemoteException ex) {
                             mRemoveList.add(r.binder);
                         }
@@ -1237,7 +1289,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
         broadcastDataConnectionStateChanged(state, isDataAllowed, reason, apn,
                 apnType, linkProperties, networkCapabilities, roaming, subId);
         broadcastPreciseDataConnectionStateChanged(state, networkType, apnType, apn, reason,
-                linkProperties, "");
+                linkProperties, "", subId);
     }
 
     public void notifyDataConnectionFailed(String reason, String apnType) {
@@ -1255,14 +1307,17 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                 + " reason=" + reason + " apnType=" + apnType);
         }
         synchronized (mRecords) {
-            mPreciseDataConnectionState = new PreciseDataConnectionState(
+            int phoneId = SubscriptionManager.getPhoneId(subId);
+            mPreciseDataConnectionState[phoneId] = new PreciseDataConnectionState(
                     TelephonyManager.DATA_UNKNOWN,TelephonyManager.NETWORK_TYPE_UNKNOWN,
                     apnType, "", reason, null, "");
             for (Record r : mRecords) {
                 if (r.matchPhoneStateListenerEvent(
-                        PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE)) {
+                        PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE) &&
+                        idMatchEx(r.subId, subId, r.phoneId, phoneId)) {
                     try {
-                        r.callback.onPreciseDataConnectionStateChanged(mPreciseDataConnectionState);
+                        r.callback.onPreciseDataConnectionStateChanged(
+                                mPreciseDataConnectionState[phoneId]);
                     } catch (RemoteException ex) {
                         mRemoveList.add(r.binder);
                     }
@@ -1272,7 +1327,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
         }
         broadcastDataConnectionFailed(reason, apnType, subId);
         broadcastPreciseDataConnectionStateChanged(TelephonyManager.DATA_UNKNOWN,
-                TelephonyManager.NETWORK_TYPE_UNKNOWN, apnType, "", reason, null, "");
+                TelephonyManager.NETWORK_TYPE_UNKNOWN, apnType, "", reason, null, "", subId);
     }
 
     public void notifyCellLocation(Bundle cellLocation) {
@@ -1385,18 +1440,27 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
 
     public void notifyPreciseDataConnectionFailed(String reason, String apnType,
             String apn, String failCause) {
+        notifyPreciseDataConnectionFailedForSubscriber(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+                reason, apnType, apn, failCause);
+    }
+
+    public void notifyPreciseDataConnectionFailedForSubscriber(int subId, String reason,
+            String apnType, String apn, String failCause) {
         if (!checkNotifyPermission("notifyPreciseDataConnectionFailed()")) {
             return;
         }
         synchronized (mRecords) {
-            mPreciseDataConnectionState = new PreciseDataConnectionState(
+            int phoneId = SubscriptionManager.getPhoneId(subId);
+            mPreciseDataConnectionState[phoneId] = new PreciseDataConnectionState(
                     TelephonyManager.DATA_UNKNOWN, TelephonyManager.NETWORK_TYPE_UNKNOWN,
                     apnType, apn, reason, null, failCause);
             for (Record r : mRecords) {
                 if (r.matchPhoneStateListenerEvent(
-                        PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE)) {
+                        PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE) &&
+                        idMatchEx(r.subId, subId, r.phoneId, phoneId)) {
                     try {
-                        r.callback.onPreciseDataConnectionStateChanged(mPreciseDataConnectionState);
+                        r.callback.onPreciseDataConnectionStateChanged(
+                                mPreciseDataConnectionState[phoneId]);
                     } catch (RemoteException ex) {
                         mRemoveList.add(r.binder);
                     }
@@ -1405,7 +1469,8 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
             handleRemoveListLocked();
         }
         broadcastPreciseDataConnectionStateChanged(TelephonyManager.DATA_UNKNOWN,
-                TelephonyManager.NETWORK_TYPE_UNKNOWN, apnType, apn, reason, null, failCause);
+                TelephonyManager.NETWORK_TYPE_UNKNOWN, apnType, apn, reason,
+                null, failCause, subId);
     }
 
     public void notifyVoLteServiceStateChanged(VoLteServiceState lteState) {
@@ -1479,9 +1544,9 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                 pw.println("mDataConnectionState=" + mDataConnectionState[i]);
                 pw.println("mCellLocation=" + mCellLocation[i]);
                 pw.println("mCellInfo=" + mCellInfo.get(i));
+                pw.println("mPreciseDataConnectionState=" + mPreciseDataConnectionState[i]);
                 pw.decreaseIndent();
             }
-            pw.println("mPreciseDataConnectionState=" + mPreciseDataConnectionState);
             pw.println("mPreciseCallState=" + mPreciseCallState);
             pw.println("mCarrierNetworkChangeState=" + mCarrierNetworkChangeState);
             pw.println("mRingingCallState=" + mRingingCallState);
@@ -1588,10 +1653,10 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
         // Wakeup apps for the (SUBSCRIPTION_)PHONE_STATE broadcast.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
 
-        // Create a version of the intent with the number always populated.
         Intent intentWithPhoneNumber = new Intent(intent);
-        intentWithPhoneNumber.putExtra(TelephonyManager.EXTRA_INCOMING_NUMBER, incomingNumber);
-
+        if (!TextUtils.isEmpty(incomingNumber)) {
+            intentWithPhoneNumber.putExtra(TelephonyManager.EXTRA_INCOMING_NUMBER, incomingNumber);
+        }
         // Send broadcast twice, once for apps that have PRIVILEGED permission and once for those
         // that have the runtime one
         mContext.sendBroadcastAsUser(intentWithPhoneNumber, UserHandle.ALL,
@@ -1661,7 +1726,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
 
     private void broadcastPreciseDataConnectionStateChanged(int state, int networkType,
             String apnType, String apn, String reason, LinkProperties linkProperties,
-            String failCause) {
+            String failCause, int subId) {
         Intent intent = new Intent(TelephonyManager.ACTION_PRECISE_DATA_CONNECTION_STATE_CHANGED);
         intent.putExtra(PhoneConstants.STATE_KEY, state);
         intent.putExtra(PhoneConstants.DATA_NETWORK_TYPE_KEY, networkType);
@@ -1672,6 +1737,7 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
             intent.putExtra(PhoneConstants.DATA_LINK_PROPERTIES_KEY,linkProperties);
         }
         if (failCause != null) intent.putExtra(PhoneConstants.DATA_FAILURE_CAUSE_KEY, failCause);
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
 
         mContext.sendBroadcastAsUser(intent, UserHandle.ALL,
                 android.Manifest.permission.READ_PRECISE_PHONE_STATE);
@@ -1803,8 +1869,10 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
             try {
                 if (VDBG) log("checkPossibleMissNotify: onServiceStateChanged state=" +
                         mServiceState[phoneId]);
+                // MTK-START: MTK service state
                 r.callback.onServiceStateChanged(
-                        new ServiceState(mServiceState[phoneId]));
+                        makeServiceState(mServiceState[phoneId]));
+                // MTK-END
             } catch (RemoteException ex) {
                 mRemoveList.add(r.binder);
             }
@@ -1816,7 +1884,9 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
                 if (DBG) {
                     log("checkPossibleMissNotify: onSignalStrengthsChanged SS=" + signalStrength);
                 }
-                r.callback.onSignalStrengthsChanged(new SignalStrength(signalStrength));
+                // MTK-START: MTK signal strength
+                r.callback.onSignalStrengthsChanged(makeSignalStrength(phoneId, signalStrength));
+                // MTK-END
             } catch (RemoteException ex) {
                 mRemoveList.add(r.binder);
             }
@@ -1916,4 +1986,155 @@ class TelephonyRegistry extends ITelephonyRegistry.Stub {
             }
         }
     }
+
+    /**
+     * Anchor method of idMatch extension to avoid the timing issue that
+     * subId will be invalidated for a short period, ex.. SIM hot plug-in/out.
+     * Currently, only used for notifyDataXXXForSubscriber.
+     *
+     * @param rSubId the record subId.
+     * @param subId the caller subId.
+     * @Param rPhoneId the record phoneId.
+     * @Param phoneId the caller phoneId.
+     * @return {@code true} if notification is needed.
+     */
+    boolean idMatchEx(int rSubId, int subId, int rPhoneId, int phoneId) {
+        if (sMethodIdMatchEx != null) {
+            try {
+                return (boolean) sMethodIdMatchEx.invoke(null,
+                        rSubId, subId, mDefaultSubId, rPhoneId, phoneId);
+            } catch (Exception e) {
+                e.printStackTrace();
+                log(e.toString());
+            }
+        } else {
+            log("sMethodIdMatchEx is null!");
+        }
+
+        // AOSP method
+        return idMatch(rSubId, subId, phoneId);
+    }
+
+    // MTK-START: provide MTK signal Strength to Apps layer
+    public SignalStrength makeSignalStrength(int phoneId) {
+        SignalStrength sInstance;
+        String className = "mediatek.telephony.MtkSignalStrength";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(int.class);
+            clazzConstructfunc.setAccessible(true);
+            sInstance = (SignalStrength) clazzConstructfunc.newInstance(
+                    new Object[]{new Integer(phoneId)});
+        // tk solution should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength InstantiationException! Used AOSP instead!");
+            sInstance = new SignalStrength();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength InvocationTargetException! Used AOSP instead!");
+            sInstance = new SignalStrength();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength IllegalAccessException! Used AOSP instead!");
+            sInstance = new SignalStrength();
+        } catch (Exception  e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "No MtkSignalStrength! Used AOSP instead!");
+            sInstance = new SignalStrength();
+        }
+        return sInstance;
+    }
+
+    public SignalStrength makeSignalStrength(int phoneId, SignalStrength signalStrength) {
+        SignalStrength sInstance;
+        String className = "mediatek.telephony.MtkSignalStrength";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(int.class, SignalStrength.class);
+            clazzConstructfunc.setAccessible(true);
+            sInstance = (SignalStrength) clazzConstructfunc.newInstance(
+                    new Object[] {new Integer(phoneId), new SignalStrength(signalStrength)});
+        // tk solution should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength InstantiationException! Used AOSP instead!");
+            sInstance = new SignalStrength(signalStrength);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength InvocationTargetException! Used AOSP instead!");
+            sInstance = new SignalStrength(signalStrength);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkSignalStrength IllegalAccessException! Used AOSP instead!");
+            sInstance = new SignalStrength(signalStrength);
+        } catch (Exception  e) {
+            Rlog.e(TAG, "No MtkSignalStrength! Used AOSP instead!");
+            sInstance = new SignalStrength(signalStrength);
+        }
+        return sInstance;
+    }
+    // MTK-END
+
+    // MTK-START: provide MTK service state to Apps layer
+    public ServiceState makeServiceState() {
+        ServiceState sInstance;
+        String className = "mediatek.telephony.MtkServiceState";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor();
+            clazzConstructfunc.setAccessible(true);
+            sInstance = (ServiceState) clazzConstructfunc.newInstance();
+        // tk solution should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState InstantiationException! Used AOSP instead!");
+            sInstance = new ServiceState();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState InvocationTargetException! Used AOSP instead!");
+            sInstance = new ServiceState();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState IllegalAccessException! Used AOSP instead!");
+            sInstance = new ServiceState();
+        } catch (Exception e) {
+            Rlog.e(TAG, "No MtkServiceState! Used AOSP instead!");
+            sInstance = new ServiceState();
+        }
+        return sInstance;
+    }
+
+    public ServiceState makeServiceState(ServiceState serviceState) {
+        ServiceState sInstance;
+        String className = "mediatek.telephony.MtkServiceState";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(ServiceState.class);
+            clazzConstructfunc.setAccessible(true);
+            sInstance = (ServiceState) clazzConstructfunc.newInstance(serviceState);
+        // tk solution should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState InstantiationException! Used AOSP instead!");
+            sInstance = new ServiceState(serviceState);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState InvocationTargetException! Used AOSP instead!");
+            sInstance = new ServiceState(serviceState);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(TAG, "MtkServiceState IllegalAccessException! Used AOSP instead!");
+            sInstance = new ServiceState(serviceState);
+        } catch (Exception e) {
+            Rlog.e(TAG, "No MtkServiceState! Used AOSP instead!");
+            sInstance = new ServiceState(serviceState);
+        }
+        return sInstance;
+    }
+    // MTK-END
 }

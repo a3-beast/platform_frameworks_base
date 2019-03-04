@@ -87,10 +87,11 @@ import static android.net.dhcp.DhcpPacket.*;
 public class DhcpClient extends StateMachine {
 
     private static final String TAG = "DhcpClient";
+    /// M: Debug purpose
     private static final boolean DBG = true;
-    private static final boolean STATE_DBG = false;
-    private static final boolean MSG_DBG = false;
-    private static final boolean PACKET_DBG = false;
+    private static final boolean STATE_DBG = true;
+    private static final boolean MSG_DBG = true;
+    private static final boolean PACKET_DBG = true;
 
     // Timers and timeouts.
     private static final int SECONDS = 1000;
@@ -222,6 +223,29 @@ public class DhcpClient extends StateMachine {
         return new WakeupMessage(mContext, getHandler(), cmdName, cmd);
     }
 
+    //  M: DhcpClient add-on by extension method @{
+    protected static java.util.HashMap<String, DhcpResults> sDhcpResultMap;
+
+    //  M: DhcpClient add-on by extension method @{
+    /**
+     * DhcpClient dummy construction function.
+     *
+     * @hide
+     */
+    public DhcpClient(String tag, android.os.Handler handler) {
+        super(tag, handler);
+        mContext = null;
+        mController = null;
+        mIfaceName = null;
+        mRandom = null;
+        mKickAlarm = null;
+        mTimeoutAlarm = null;
+        mRenewAlarm = null;
+        mRebindAlarm = null;
+        mExpiryAlarm = null;
+    }
+    ///@}
+
     // TODO: Take an InterfaceParams instance instead of an interface name String.
     private DhcpClient(Context context, StateMachine controller, String iface) {
         super(TAG, controller.getHandler());
@@ -265,9 +289,25 @@ public class DhcpClient extends StateMachine {
 
     public static DhcpClient makeDhcpClient(
             Context context, StateMachine controller, InterfaceParams ifParams) {
-        DhcpClient client = new DhcpClient(context, controller, ifParams.name);
-        client.mIface = ifParams;
-        client.start();
+        //  M: Support Mediatek DHCP client
+        DhcpClient client = null;
+        try {
+            dalvik.system.PathClassLoader pcLoader = new dalvik.system.PathClassLoader(
+                    "/system/framework/mediatek-framework-net.jar",
+                    context.getClassLoader());
+            Class mtkDhcpClientClass = pcLoader.loadClass(
+                    "com.mediatek.net.dhcp.MtkDhcpClient");
+            java.lang.reflect.Method method = mtkDhcpClientClass.getDeclaredMethod(
+                    "makeDhcpClient", Context.class, StateMachine.class, InterfaceParams.class);
+            method.setAccessible(true);
+            client = (DhcpClient) method.invoke(mtkDhcpClientClass, context,
+                    controller, ifParams);
+        } catch (Exception e) {
+            Log.e(TAG, "No MtkDhcpClient! Used AOSP for instead! %s", e);
+            client = new DhcpClient(context, controller, ifParams.name);
+            client.mIface = ifParams;
+            client.start();
+        }
         return client;
     }
 

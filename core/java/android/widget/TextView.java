@@ -3511,7 +3511,7 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
     /**
      * Read the Text Appearance attributes from a given TypedArray and set its values to the given
      * set. If the TypedArray contains a value that was already set in the given attributes, that
-     * will be overridden.
+     * will be overriden.
      *
      * @param context The Context to be used
      * @param appearance The TypedArray to read properties from
@@ -10078,6 +10078,16 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             return superResult;
         }
 
+
+        /// M: 02273017, set discard next action up. Because the mEditor is null when the text
+        // isn't editable. Don't handle the release after a long press, because it will move the
+        // selection away from whatever the menu action was trying to affect. @{
+        if (mEditor == null && mTextViewDiscardNextActionUp && action == MotionEvent.ACTION_UP) {
+            mTextViewDiscardNextActionUp = false;
+            return superResult;
+        }
+        /// @}
+
         final boolean touchIsFinished = (action == MotionEvent.ACTION_UP)
                 && (mEditor == null || !mEditor.mIgnoreActionUpEvent) && isFocused();
 
@@ -11338,6 +11348,8 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
         }
 
         if (super.performLongClick()) {
+            /// M: 02273017, set discard next action up
+            mTextViewDiscardNextActionUp = true;
             handled = true;
             performedHapticFeedback = true;
         }
@@ -11352,6 +11364,8 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
               performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             }
             if (mEditor != null) mEditor.mDiscardNextActionUp = true;
+            /// M: 02273017, set discard next action up
+            mTextViewDiscardNextActionUp = true;
         } else {
             MetricsLogger.action(
                     mContext,
@@ -12548,4 +12562,8 @@ public class TextView extends View implements ViewTreeObserver.OnPreDrawListener
             TextView.this.spanChange(buf, what, s, -1, e, -1);
         }
     }
+
+    /// ----------------------------------------- MTK ----------------------------------------------
+    /// M: 02273017, set discard next action up
+    private boolean mTextViewDiscardNextActionUp = false;
 }

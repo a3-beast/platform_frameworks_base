@@ -33,6 +33,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.UUID;
+import android.os.SystemProperties;
 
 /**
  * Represents a remote Bluetooth device. A {@link BluetoothDevice} lets you
@@ -72,7 +73,8 @@ import java.util.UUID;
  */
 public final class BluetoothDevice implements Parcelable {
     private static final String TAG = "BluetoothDevice";
-    private static final boolean DBG = false;
+    private static final boolean DBG = SystemProperties
+                                     .get("persist.vendor.bluetooth.hostloglevel","").equals("sqc");
 
     /**
      * Connection state bitmask as returned by getConnectionState.
@@ -640,7 +642,7 @@ public final class BluetoothDevice implements Parcelable {
     public static final int ACCESS_REJECTED = 2;
 
     /**
-     * No preference of physical transport for GATT connections to remote dual-mode devices
+     * No preferrence of physical transport for GATT connections to remote dual-mode devices
      */
     public static final int TRANSPORT_AUTO = 0;
 
@@ -856,6 +858,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getName() of device (" +
+                getAddress() + ")", npe);
+        }
         return null;
     }
 
@@ -877,6 +885,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getType() of device (" +
+                getAddress() + ")", npe);
+        }
         return DEVICE_TYPE_UNKNOWN;
     }
 
@@ -897,6 +911,12 @@ public final class BluetoothDevice implements Parcelable {
             return service.getRemoteAlias(this);
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
+        }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getAlias() of device (" +
+                getAddress() + ")", npe);
         }
         return null;
     }
@@ -962,6 +982,12 @@ public final class BluetoothDevice implements Parcelable {
             return service.getBatteryLevel(this);
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
+        }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getBatteryLevel() of device (" +
+                getAddress() + ")", npe);
         }
         return BATTERY_LEVEL_UNKNOWN;
     }
@@ -1174,6 +1200,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getBondState() of device (" +
+                getAddress() + ")", npe);
+        }
         return BOND_NONE;
     }
 
@@ -1243,6 +1275,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getBluetoothClass() of device (" +
+                getAddress() + ")", npe);
+        }
         return null;
     }
 
@@ -1267,6 +1305,12 @@ public final class BluetoothDevice implements Parcelable {
             return service.getRemoteUuids(this);
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
+        }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getUuids() of device (" +
+                getAddress() + ")", npe);
         }
         return null;
     }
@@ -1445,6 +1489,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getPhonebookAccessPermission() of device (" +
+                getAddress() + ")", npe);
+        }
         return ACCESS_UNKNOWN;
     }
 
@@ -1489,6 +1539,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getMessageAccessPermission() of device (" +
+                getAddress() + ")", npe);
+        }
         return ACCESS_UNKNOWN;
     }
 
@@ -1531,6 +1587,12 @@ public final class BluetoothDevice implements Parcelable {
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
         }
+        catch (NullPointerException npe) {
+            // Handle case where bluetooth service proxy
+            // is already null.
+            Log.e(TAG, "NullPointerException for getSimAccessPermission() of device (" +
+                getAddress() + ")", npe);
+        }
         return ACCESS_UNKNOWN;
     }
 
@@ -1567,7 +1629,7 @@ public final class BluetoothDevice implements Parcelable {
      * For example, for Bluetooth 2.1 devices, if any of the devices does not
      * have an input and output capability or just has the ability to
      * display a numeric key, a secure socket connection is not possible.
-     * In such a case, use {@link createInsecureRfcommSocket}.
+     * In such a case, use {#link createInsecureRfcommSocket}.
      * For more details, refer to the Security Model section 5.2 (vol 3) of
      * Bluetooth Core Specification version 2.1 + EDR.
      * <p>Use {@link BluetoothSocket#connect} to initiate the outgoing
@@ -1601,7 +1663,7 @@ public final class BluetoothDevice implements Parcelable {
      * For example, for Bluetooth 2.1 devices, if any of the devices does not
      * have an input and output capability or just has the ability to
      * display a numeric key, a secure socket connection is not possible.
-     * In such a case, use {@link createInsecureRfcommSocket}.
+     * In such a case, use {#link createInsecureRfcommSocket}.
      * For more details, refer to the Security Model section 5.2 (vol 3) of
      * Bluetooth Core Specification version 2.1 + EDR.
      * <p>Use {@link BluetoothSocket#connect} to initiate the outgoing
@@ -1658,7 +1720,7 @@ public final class BluetoothDevice implements Parcelable {
      * For example, for Bluetooth 2.1 devices, if any of the devices does not
      * have an input and output capability or just has the ability to
      * display a numeric key, a secure socket connection is not possible.
-     * In such a case, use {@link #createInsecureRfcommSocketToServiceRecord}.
+     * In such a case, use {#link createInsecureRfcommSocketToServiceRecord}.
      * For more details, refer to the Security Model section 5.2 (vol 3) of
      * Bluetooth Core Specification version 2.1 + EDR.
      * <p>Hint: If you are connecting to a Bluetooth serial board then try
@@ -1938,7 +2000,7 @@ public final class BluetoothDevice implements Parcelable {
      * encrypted.
      * <p> Use this socket if an authenticated socket link is possible. Authentication refers
      * to the authentication of the link key to prevent man-in-the-middle type of attacks. When a
-     * secure socket connection is not possible, use {@link createInsecureLeL2capCocSocket(int,
+     * secure socket connection is not possible, use {#link createInsecureLeL2capCocSocket(int,
      * int)}.
      *
      * @param transport Bluetooth transport to use, must be {@link #TRANSPORT_LE}

@@ -31,6 +31,7 @@ import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.DebugUtils;
+import android.util.Slog;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
@@ -312,6 +313,12 @@ public class VolumeInfo implements Parcelable {
      * {@link android.Manifest.permission#WRITE_MEDIA_STORAGE}.
      */
     public File getInternalPathForUser(int userId) {
+        ///M : if volume path is null, use alternate path
+        if(path == null) {
+            Slog.d("VolumeInfo", "path is not set by Vold yet, use alternate path");
+            return new File("/dev/null");
+        }
+
         if (type == TYPE_PUBLIC) {
             // TODO: plumb through cleaner path from vold
             return new File(path.replace("/storage/", "/mnt/media_rw/"));

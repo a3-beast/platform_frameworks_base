@@ -64,7 +64,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  * The Typeface class specifies the typeface and intrinsic style of a font.
  * This is used in the paint, along with optionally Paint settings like

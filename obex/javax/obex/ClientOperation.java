@@ -207,10 +207,12 @@ public final class ClientOperation implements Operation, BaseStream {
      *         object
      */
     public synchronized int getResponseCode() throws IOException {
+        if(V) Log.d(TAG, "getResponseCode()");
         if ((mReplyHeader.responseCode == -1)
                 || (mReplyHeader.responseCode == ResponseCodes.OBEX_HTTP_CONTINUE)) {
             validateConnection();
         }
+        if(V) Log.d(TAG, "getResponseCode() return = " + mReplyHeader.responseCode);
 
         return mReplyHeader.responseCode;
     }

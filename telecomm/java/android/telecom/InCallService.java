@@ -548,6 +548,18 @@ public abstract class InCallService extends Service {
     }
 
     /**
+     * Mediatek APIs related with call operations.
+     *
+     * @param params The bundle of operation parameters.
+     * @hide
+     */
+    public final void doMtkAction(Bundle params) {
+        if (mPhone != null) {
+            mPhone.doMtkAction(params);
+        }
+    }
+
+    /**
      * Used to issue commands to the {@link Connection.VideoProvider} associated with a
      * {@link Call}.
      */

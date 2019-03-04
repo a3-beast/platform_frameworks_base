@@ -63,6 +63,9 @@ import libcore.io.IoUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
+/// M: Added for BOOTPROF @{
+import java.io.FileOutputStream;
+/// @}
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -111,6 +114,33 @@ public class ZygoteInit {
 
     /** Controls whether we should preload resources during zygote init. */
     public static final boolean PRELOAD_RESOURCES = true;
+
+    /// M: Added for BOOTPROF @{
+    private static boolean sMtprofDisable = false;
+    private static void addBootEvent(String bootevent) {
+        if (sMtprofDisable) {
+            return;
+        }
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream("/proc/bootprof");
+            fos.write(bootevent.getBytes());
+            fos.flush();
+        } catch (FileNotFoundException e) {
+            Log.e("BOOTPROF", "Failure open /proc/bootprof, not found!", e);
+        } catch (java.io.IOException e) {
+            Log.e("BOOTPROF", "Failure open /proc/bootprof entry", e);
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e) {
+                    Log.e("BOOTPROF", "Failure close /proc/bootprof entry", e);
+                }
+            }
+        }
+    }
+    /// @}
 
     private static final int UNPRIVILEGED_UID = 9999;
     private static final int UNPRIVILEGED_GID = 9999;
@@ -275,11 +305,13 @@ public class ZygoteInit {
         float defaultUtilization = runtime.getTargetHeapUtilization();
         runtime.setTargetHeapUtilization(0.8f);
 
+        /// M: Added for BOOTPROF
+        int count = 0;
+        /// @}
         try {
             BufferedReader br
                 = new BufferedReader(new InputStreamReader(is), 256);
 
-            int count = 0;
             String line;
             while ((line = br.readLine()) != null) {
                 // Skip comments and blank lines.
@@ -340,6 +372,10 @@ public class ZygoteInit {
                     throw new RuntimeException("Failed to restore root", ex);
                 }
             }
+            /// M: Added for BOOTPROF @{
+            addBootEvent("Zygote:Preload " + count + " classes in " +
+                    (SystemClock.uptimeMillis() - startTime) + "ms");
+            /// @}
         }
     }
 
@@ -366,6 +402,10 @@ public class ZygoteInit {
                 ar.recycle();
                 Log.i(TAG, "...preloaded " + N + " resources in "
                         + (SystemClock.uptimeMillis()-startTime) + "ms.");
+                /// M: Added for BOOTPROF @{
+                addBootEvent("Zygote:Preload " + N + " obtain resources in " +
+                        (SystemClock.uptimeMillis() - startTime) + "ms");
+                /// @}
 
                 startTime = SystemClock.uptimeMillis();
                 ar = mResources.obtainTypedArray(
@@ -385,6 +425,10 @@ public class ZygoteInit {
                     Log.i(TAG, "...preloaded " + N + " resource in "
                             + (SystemClock.uptimeMillis() - startTime) + "ms.");
                 }
+                /// M: Added for BOOTPROF @{
+                addBootEvent("Zygote:Preload " + N + " resources in " +
+                        (SystemClock.uptimeMillis() - startTime) + "ms");
+                /// @}
             }
             mResources.finishPreloading();
         } catch (RuntimeException e) {
@@ -686,7 +730,10 @@ public class ZygoteInit {
         String args[] = {
             "--setuid=1000",
             "--setgid=1000",
-            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1018,1021,1023,1024,1032,1065,3001,3002,3003,3006,3007,3009,3010",
+            /// M: [Wi-Fi Hotspot Manager] system_server add dhcp (1014) group to access
+            /// "/data/misc/dhcp/dnsmasq.leases"
+            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1014,1018,1021,1023," +
+                        "1024,1032,1065,3001,3002,3003,3006,3007,3009,3010",
             "--capabilities=" + capabilities + "," + capabilities,
             "--nice-name=system_server",
             "--runtime-args",
@@ -804,6 +851,9 @@ public class ZygoteInit {
                 bootTimingsTraceLog.traceBegin("ZygotePreload");
                 EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_START,
                     SystemClock.uptimeMillis());
+                /// M: Added for BOOTPROF
+                addBootEvent("Zygote:Preload Start");
+                /// @}
                 preload(bootTimingsTraceLog);
                 EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_END,
                     SystemClock.uptimeMillis());
@@ -827,6 +877,9 @@ public class ZygoteInit {
             // Zygote process unmounts root storage spaces.
             Zygote.nativeUnmountStorageOnInit();
 
+            /// M: Added for BOOTPROF
+            addBootEvent("Zygote:Preload End");
+            /// @}
             ZygoteHooks.stopZygoteNoThreadCreation();
 
             if (startSystemServer) {

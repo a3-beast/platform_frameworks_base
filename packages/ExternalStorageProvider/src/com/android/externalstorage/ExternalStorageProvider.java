@@ -19,6 +19,7 @@ package com.android.externalstorage;
 import android.annotation.Nullable;
 import android.app.usage.StorageStatsManager;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.UriPermission;
 import android.database.Cursor;
 import android.database.MatrixCursor;
@@ -50,6 +51,10 @@ import android.util.Pair;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.content.FileSystemProvider;
 import com.android.internal.util.IndentingPrintWriter;
+
+/// M: for DRMv1.0 support in internal storage @{
+import com.mediatek.internal.content.FileSystemProviderExt;
+/// @}
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -83,6 +88,11 @@ public class ExternalStorageProvider extends FileSystemProvider {
             Document.COLUMN_LAST_MODIFIED, Document.COLUMN_FLAGS, Document.COLUMN_SIZE,
     };
 
+    /// M: for DRMv1.0 support in internal storage @{
+    private static FileSystemProviderExt sFileSystemProviderExt;
+    private String[] mDefaultProjection;
+    /// @}
+
     private static class RootInfo {
         public String rootId;
         public String volumeId;
@@ -108,7 +118,19 @@ public class ExternalStorageProvider extends FileSystemProvider {
 
     @Override
     public boolean onCreate() {
-        super.onCreate(DEFAULT_DOCUMENT_PROJECTION);
+
+        /// M: for DRMv1.0 support in External storage @{
+        /*  Adds 3 additional fields (DRM- Data, IS_DRM, DRM METHOD) of DRM (v1.0)  fields
+         * for each file (while row building) along with default documents projection. Using
+         * these special fields, the providers/apps can determine if the file is normal file
+         * or DRM protected file, and can handle drm files, according to their own
+         * UI requirements (for the operations like shared/copied/movied).
+         */
+        Context context = getContext();
+        sFileSystemProviderExt = sFileSystemProviderExt.getInstance(context);
+        mDefaultProjection = sFileSystemProviderExt.resolveProjection(DEFAULT_DOCUMENT_PROJECTION);
+        super.onCreate(mDefaultProjection);
+        /// @}
 
         mStorageManager = getContext().getSystemService(StorageManager.class);
         mUserManager = getContext().getSystemService(UserManager.class);

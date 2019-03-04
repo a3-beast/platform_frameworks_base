@@ -42,9 +42,12 @@ public class AlarmManagerServiceTest {
             all.put(uid, uidAlarms = new ArrayList<>());
         }
         // Details don't matter.
+        /// M: [ALPS03991953] [FrameworksServicesTests Build error] Need to add L for long type
+        ///  parameters and add false for alarm grouping tag @{
         uidAlarms.add(new Alarm(
                 removeIt ? RTC : RTC_WAKEUP,
-                0, 0, 0, 0, 0, null, null, null, null, 0, null, uid, name));
+                0L, 0L, 0L, 0L, 0L, null, null, null, null, 0, null, uid, name, false));
+        ///@}
         return all;
     }
 

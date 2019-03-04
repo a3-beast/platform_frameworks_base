@@ -49,6 +49,11 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/newwavelabs/BeatPlucker.ogg:system/media/audio/ringtones/BeatPlucker.ogg \
 	$(LOCAL_PATH)/newwavelabs/CaffeineSnake.ogg:system/media/audio/notifications/CaffeineSnake.ogg
 
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/VideoStop.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--
+
 ifneq ($(MINIMAL_NEWWAVELABS),true)
 PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/newwavelabs/BentleyDubs.ogg:system/media/audio/ringtones/BentleyDubs.ogg \

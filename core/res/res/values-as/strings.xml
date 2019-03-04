@@ -291,9 +291,12 @@
     <string name="permgrouplab_camera" msgid="4820372495894586615">"কেমেৰা"</string>
     <string name="permgroupdesc_camera" msgid="3250611594678347720">"ফট\' তুলিব আৰু ভিডিঅ\' ৰেকৰ্ড কৰিব পাৰে"</string>
     <string name="permgrouprequest_camera" msgid="1299833592069671756">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;ক ছবি তুলিবলৈ আৰু ভিডিঅ\' ৰেকৰ্ড কৰিবলৈ অনুমতি দিবনে?"</string>
-    <string name="permgrouplab_calllog" msgid="8798646184930388160">"কল লগসমূহ"</string>
-    <string name="permgroupdesc_calllog" msgid="3006237336748283775">"ফ\'নৰ কল লগ পঢ়ক আৰু লিখক"</string>
-    <string name="permgrouprequest_calllog" msgid="8487355309583773267">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;ক আপোনাৰ ফ\'ন কল লগ চাবলৈ অনুমতি দিবনে?"</string>
+    <!-- no translation found for permgrouplab_calllog (8798646184930388160) -->
+    <skip />
+    <!-- no translation found for permgroupdesc_calllog (3006237336748283775) -->
+    <skip />
+    <!-- no translation found for permgrouprequest_calllog (8487355309583773267) -->
+    <skip />
     <string name="permgrouplab_phone" msgid="5229115638567440675">"ফ’ন"</string>
     <string name="permgroupdesc_phone" msgid="6234224354060641055">"ফ\'ন কল কৰিব আৰু পৰিচলনা কৰিব পাৰে"</string>
     <string name="permgrouprequest_phone" msgid="9166979577750581037">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;ক ফ\'ন কল কৰিবলৈ আৰু পৰিচালনা কৰিবলৈ অনুমতি দিবনে?"</string>
@@ -302,7 +305,7 @@
     <string name="permgrouprequest_sensors" msgid="6349806962814556786">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;ক আপোনাৰ দেহৰ গুৰুত্বপূৰ্ণ অংগসমূহৰ অৱস্থাৰ বিষয়ে ছেন্সৰৰ ডেটা লাভ কৰিবলৈ অনুমতি দিবনে?"</string>
     <string name="capability_title_canRetrieveWindowContent" msgid="3901717936930170320">"ৱিণ্ড\' সমল বিচাৰি উলিয়াওক"</string>
     <string name="capability_desc_canRetrieveWindowContent" msgid="3772225008605310672">"আপুনি যোগাযোগ কৰি থকা ৱিণ্ড\'খনৰ সমল পৰীক্ষা কৰক।"</string>
-    <string name="capability_title_canRequestTouchExploration" msgid="3108723364676667320">"স্পৰ্শৰ দ্বাৰা অন্বেষণ কৰাৰ সুবিধা অন কৰক"</string>
+    <string name="capability_title_canRequestTouchExploration" msgid="3108723364676667320">"স্পৰ্শৰদ্বাৰা অন্বেষণ কৰাৰ সুবিধা অন কৰক"</string>
     <string name="capability_desc_canRequestTouchExploration" msgid="7543249041581408313">"টেপ কৰা বস্তুসমূহ ডাঙৰকৈ কোৱা হ\'ব আৰু আঙুলিৰ স্পৰ্শেৰে নিৰ্দেশ দি স্ক্ৰীণ অন্বেষণ কৰিব পাৰিব।"</string>
     <string name="capability_title_canRequestFilterKeyEvents" msgid="2103440391902412174">"আপুনি লিখা পাঠ নিৰীক্ষণ কৰক"</string>
     <string name="capability_desc_canRequestFilterKeyEvents" msgid="7463135292204152818">"ক্ৰেডিট কাৰ্ডৰ নম্বৰ আৰু পাছৱৰ্ডৰ দৰে ব্যক্তিগত ডেটা অন্তৰ্ভুক্ত হ\'ব পাৰে।"</string>
@@ -1175,9 +1178,6 @@
     <skip />
     <string name="wifi_no_internet" msgid="8938267198124654938">"ৱাই-ফাইত ইন্টাৰনেট নাই"</string>
     <string name="wifi_no_internet_detailed" msgid="8083079241212301741">"অধিক বিকল্পৰ বাবে টিপক"</string>
-    <string name="wifi_softap_config_change" msgid="8475911871165857607">"আপোনাৰ হটস্পট ছেটিংসমূহত কৰা সালসলনি"</string>
-    <string name="wifi_softap_config_change_summary" msgid="7601233252456548891">"আপোনাৰ হটস্পটৰ বেণ্ড সলনি কৰা হ’ল।"</string>
-    <string name="wifi_softap_config_change_detailed" msgid="8022936822860678033">"আপোনাৰ কেৱল ৫গিগাহাৰ্টজৰ প্ৰতি অগ্ৰাধিকাৰ এই ডিভাচইচটোৱে সমৰ্থন নকৰে। ইয়াৰ পৰিৱৰ্তে, ডিভাচইচটোৱে যেতিয়া ৫গিগাহাৰ্টজ বেণ্ড উপলব্ধ হ’ব তেতিয়া সেইয়া ব্যৱহাৰ কৰিব।"</string>
     <string name="network_switch_metered" msgid="4671730921726992671">"<xliff:g id="NETWORK_TYPE">%1$s</xliff:g>লৈ সলনি কৰা হ\'ল"</string>
     <string name="network_switch_metered_detail" msgid="775163331794506615">"যেতিয়া <xliff:g id="PREVIOUS_NETWORK">%2$s</xliff:g>ত ইণ্টাৰনেট নাথাকে, তেতিয়া ডিভাইচে <xliff:g id="NEW_NETWORK">%1$s</xliff:g>ক ব্যৱহাৰ কৰে। মাচুল প্ৰযোজ্য হ\'ব পাৰে।"</string>
     <string name="network_switch_metered_toast" msgid="5779283181685974304">"<xliff:g id="PREVIOUS_NETWORK">%1$s</xliff:g>ৰ পৰা <xliff:g id="NEW_NETWORK">%2$s</xliff:g> লৈ সলনি কৰা হ\'ল"</string>
@@ -1349,7 +1349,7 @@
     <string name="forward_intent_to_work" msgid="621480743856004612">"আপুনি আপোনাৰ কৰ্মস্থানৰ প্ৰ\'ফাইলৰ ভিতৰত এই এপটো ব্যৱহাৰ কৰি আছে"</string>
     <string name="input_method_binding_label" msgid="1283557179944992649">"ইনপুট পদ্ধতি"</string>
     <string name="sync_binding_label" msgid="3687969138375092423">"ছিংক"</string>
-    <string name="accessibility_binding_label" msgid="4148120742096474641">"সাধ্য সুবিধাসমূহ"</string>
+    <string name="accessibility_binding_label" msgid="4148120742096474641">"সাধ্য় সুবিধাসমূহ"</string>
     <string name="wallpaper_binding_label" msgid="1240087844304687662">"ৱালপেপাৰ"</string>
     <string name="chooser_wallpaper" msgid="7873476199295190279">"ৱালপেপাৰ সলনি কৰক"</string>
     <string name="notification_listener_binding_label" msgid="2014162835481906429">"জাননী নিৰীক্ষক"</string>

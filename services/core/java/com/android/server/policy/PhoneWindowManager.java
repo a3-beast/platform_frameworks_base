@@ -76,7 +76,6 @@ import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_IS_ROUNDED_CO
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_IS_SCREEN_DECOR;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_KEYGUARD;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_SHOW_FOR_ALL_USERS;
-import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_STATUS_BAR_EXPANDED;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_SYSTEM_ERROR;
 import static android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_CROSSFADE;
 import static android.view.WindowManager.LayoutParams.ROTATION_ANIMATION_JUMPCUT;
@@ -152,6 +151,10 @@ import static com.android.server.wm.WindowManagerPolicyProto.STATUS_BAR;
 import static com.android.server.wm.WindowManagerPolicyProto.TOP_FULLSCREEN_OPAQUE_OR_DIMMING_WINDOW;
 import static com.android.server.wm.WindowManagerPolicyProto.TOP_FULLSCREEN_OPAQUE_WINDOW;
 import static com.android.server.wm.WindowManagerPolicyProto.WINDOW_MANAGER_DRAW_COMPLETE;
+
+/// M: WindowManager debug Mechanism
+import com.mediatek.server.wm.WindowManagerDebugger;
+import com.mediatek.server.MtkSystemServiceFactory;
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
@@ -289,6 +292,9 @@ import com.android.server.wm.AppTransition;
 import com.android.server.wm.DisplayFrames;
 import com.android.server.wm.WindowManagerInternal;
 import com.android.server.wm.WindowManagerInternal.AppTransitionListener;
+/// M: add for fullscreen switch feature @{
+import com.mediatek.server.wm.WmsExt;
+/// @}
 
 import java.io.File;
 import java.io.FileReader;
@@ -305,14 +311,19 @@ import java.util.List;
  */
 public class PhoneWindowManager implements WindowManagerPolicy {
     static final String TAG = "WindowManager";
-    static final boolean DEBUG = false;
-    static final boolean localLOGV = false;
-    static final boolean DEBUG_INPUT = false;
-    static final boolean DEBUG_KEYGUARD = false;
-    static final boolean DEBUG_LAYOUT = false;
-    static final boolean DEBUG_SPLASH_SCREEN = false;
-    static final boolean DEBUG_WAKEUP = false;
-    static final boolean SHOW_SPLASH_SCREENS = true;
+    /// M: runtime switch debug flags @{
+    static boolean DEBUG = false;
+    static boolean localLOGV = false;
+    static boolean DEBUG_INPUT = false;
+    static boolean DEBUG_KEYGUARD = false;
+    static boolean DEBUG_LAYOUT = false;
+    static boolean DEBUG_SPLASH_SCREEN = false;
+    static boolean DEBUG_WAKEUP = false;
+    static boolean SHOW_SPLASH_SCREENS = true;
+    /// @}
+    /// M: Add WindowManager debug Mechanism
+    private WindowManagerDebugger mWindowManagerDebugger =
+                    MtkSystemServiceFactory.getInstance().makeWindowManagerDebugger();
 
     // Whether to allow dock apps with METADATA_DOCK_HOME to temporarily take over the Home key.
     // No longer recommended for desk docks;
@@ -1207,10 +1218,16 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             // changes to lag, so we'd like to keep it always on.  (It will
             // still be turned off when the screen is off.)
 
-            // When locked we can provide rotation suggestions users can approve to change the
-            // current screen rotation. To do this the sensor needs to be running.
-            return mSupportAutoRotation &&
-                    mShowRotationSuggestions == Settings.Secure.SHOW_ROTATION_SUGGESTIONS_ENABLED;
+            // Google's solution only apply on low ram device
+            if (ActivityManager.isLowRamDeviceStatic()) {
+                return false;
+            } else {
+                // When locked we can provide rotation suggestions users can approve to change the
+                // current screen rotation. To do this the sensor needs to be running.
+                return mSupportAutoRotation &&
+                         mShowRotationSuggestions
+                                 == Settings.Secure.SHOW_ROTATION_SUGGESTIONS_ENABLED;
+            }
         }
         return mSupportAutoRotation;
     }
@@ -3575,10 +3592,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         final boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         final boolean canceled = event.isCanceled();
 
-        if (DEBUG_INPUT) {
+        /// M: Add more log at WMS
+        if (DEBUG_INPUT || mWindowManagerDebugger.WMS_DEBUG_ENG) {
             Log.d(TAG, "interceptKeyTi keyCode=" + keyCode + " down=" + down + " repeatCount="
                     + repeatCount + " keyguardOn=" + keyguardOn + " mHomePressed=" + mHomePressed
-                    + " canceled=" + canceled);
+                    + " canceled=" + canceled + " metaState:" + metaState);
         }
 
         // If we think we might have a volume down & power key chord on the way
@@ -4398,9 +4416,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (isKeyguardShowingAndNotOccluded()) {
                 // don't launch home if keyguard showing
                 return;
-            }
-
-            if (!mKeyguardOccluded && mKeyguardDelegate.isInputRestricted()) {
+            } else if (mKeyguardOccluded && mKeyguardDelegate.isShowing()) {
+                mKeyguardDelegate.dismiss(new KeyguardDismissCallback() {
+                    @Override
+                    public void onDismissSucceeded() throws RemoteException {
+                        mHandler.post(() -> {
+                            startDockOrHome(true /*fromHomeKey*/, awakenFromDreams);
+                        });
+                    }
+                }, null /* message */);
+                return;
+            } else if (!mKeyguardOccluded && mKeyguardDelegate.isInputRestricted()) {
                 // when in keyguard restricted mode, must first verify unlock
                 // before launching home
                 mKeyguardDelegate.verifyUnlock(new OnKeyguardExitResult() {
@@ -4670,6 +4696,13 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         dcf.setEmpty();  // Decor frame N/A for system bars.
 
         if (displayFrames.mDisplayId == DEFAULT_DISPLAY) {
+            /// M: add for fullscreen switch feature @{
+            if (mWmsExt.isFullscreenSwitchSupport()) {
+                if (mWmsExt.isFocusWindowReady(mFocusedWindow)) {
+                    mLastSystemUiFlags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                }
+            }
+            /// @}
             // For purposes of putting out fake window up to steal focus, we will
             // drive nav being hidden only by whether it is requested.
             final int sysui = mLastSystemUiFlags;
@@ -4685,7 +4718,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 navTranslucent &= areTranslucentBarsAllowed();
             }
             boolean statusBarExpandedNotKeyguard = !isKeyguardShowing && mStatusBar != null
-                    && (mStatusBar.getAttrs().privateFlags & PRIVATE_FLAG_STATUS_BAR_EXPANDED) != 0;
+                    && mStatusBar.getAttrs().height == MATCH_PARENT
+                    && mStatusBar.getAttrs().width == MATCH_PARENT;
 
             // When the navigation bar isn't visible, we put up a fake input window to catch all
             // touch events. This way we can detect when the user presses anywhere to bring back the
@@ -5075,6 +5109,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 || mScreenDecorWindows.contains(win)) {
             return;
         }
+        /// M: add for fullscreen switch feature @{
+        Rect crop = null;
+        if (mWmsExt.isFullscreenSwitchSupport()) {
+            //compute and apply the black area region.
+            crop = mWmsExt.getSwitchFrame(win, mFocusedWindow,
+                    displayFrames.mOverscan.right - displayFrames.mOverscan.left,
+                    displayFrames.mOverscan.bottom - displayFrames.mOverscan.top);
+            if (crop != null && (crop.top != 0 || crop.left != 0)) {
+                updateRect(displayFrames, crop.left, crop.top, crop.right, crop.bottom);
+            }
+        }
+        /// @}
         final WindowManager.LayoutParams attrs = win.getAttrs();
         final boolean isDefaultDisplay = win.isDefaultDisplay();
         final boolean needsToOffsetInputMethodTarget = isDefaultDisplay &&
@@ -5195,6 +5241,13 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (layoutInScreen && layoutInsetDecor) {
                 if (DEBUG_LAYOUT) Slog.v(TAG, "layoutWindowLw(" + attrs.getTitle()
                             + "): IN_SCREEN, INSET_DECOR");
+
+                /// M: Add more log at WMS
+                if (DEBUG_LAYOUT) {
+                    mWindowManagerDebugger.debugLayoutWindowLw(TAG, adjust, attrs.type, fl,
+                            canHideNavigationBar(), sysUiFl);
+                }
+
                 // This is the case for a normal activity window: we want it to cover all of the
                 // screen space, and it can take care of moving its contents to account for screen
                 // decorations that intrude into that space.
@@ -5527,7 +5580,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 + " dcf=" + dcf.toShortString()
                 + " sf=" + sf.toShortString()
                 + " osf=" + (osf == null ? "null" : osf.toShortString()));
-
+        /// M: add for fullscreen switch feature @{
+        if (mWmsExt.isFullscreenSwitchSupport()) {
+            if (crop != null && (crop.top != 0 || crop.left != 0)) {
+                // restore the balck area region.
+                updateRect(displayFrames, -crop.left, -crop.top, -crop.right, -crop.bottom);
+            }
+        }
+        /// @}
         win.computeFrameLw(pf, df, of, cf, vf, dcf, sf, osf, displayFrames.mDisplayCutout,
                 parentFrameWasClippedByDisplayCutout);
         // Dock windows carve out the bottom of the screen, so normal windows
@@ -5572,6 +5632,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     /** {@inheritDoc} */
     @Override
+    public void finishLayoutLw() {
+        /// M: add for fullscreen switch feature @{
+        if (mWmsExt.isFullscreenSwitchSupport()) {
+            // reset params
+            mWmsExt.resetSwitchFrame();
+        }
+        /// @}
+        return;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void beginPostLayoutPolicyLw(int displayWidth, int displayHeight) {
         mTopFullscreenOpaqueWindowState = null;
         mTopFullscreenOpaqueOrDimmingWindowState = null;
@@ -5586,6 +5658,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mAllowLockscreenWhenOn = false;
         mShowingDream = false;
         mWindowSleepTokenNeeded = false;
+
+        /// [ALPS02869412] when wms init, dream manager is not started yet...
+        if (mDreamManagerInternal == null) {
+            mDreamManagerInternal = LocalServices.getService(DreamManagerInternal.class);
+        }
     }
 
     /** {@inheritDoc} */
@@ -5594,6 +5671,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             WindowState attached, WindowState imeTarget) {
         final boolean affectsSystemUi = win.canAffectSystemUiFlags();
         if (DEBUG_LAYOUT) Slog.i(TAG, "Win " + win + ": affectsSystemUi=" + affectsSystemUi);
+        /// M: Add more log at WMS
+        if (DEBUG_LAYOUT) {
+            mWindowManagerDebugger.debugApplyPostLayoutPolicyLw(TAG, win, attrs,
+                    mTopFullscreenOpaqueWindowState, attached, imeTarget,
+                    mDreamingLockscreen, mShowingDream);
+        }
         applyKeyguardPolicyLw(win, imeTarget);
         final int fl = PolicyControl.getWindowFlags(win, attrs);
         if (mTopFullscreenOpaqueWindowState == null && affectsSystemUi
@@ -5688,7 +5771,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         // Take note if a window wants to acquire a sleep token.
-        if ((attrs.privateFlags & PRIVATE_FLAG_ACQUIRES_SLEEP_TOKEN) != 0
+        if (win.isVisibleLw() && (attrs.privateFlags & PRIVATE_FLAG_ACQUIRES_SLEEP_TOKEN) != 0
                 && win.canAcquireSleepToken()) {
             mWindowSleepTokenNeeded = true;
         }
@@ -5734,7 +5817,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (mStatusBar != null) {
             if (DEBUG_LAYOUT) Slog.i(TAG, "force=" + mForceStatusBar
                     + " forcefkg=" + mForceStatusBarFromKeyguard
-                    + " top=" + mTopFullscreenOpaqueWindowState);
+                    + " top=" + mTopFullscreenOpaqueWindowState
+                    + " dream=" + (mDreamManagerInternal != null ?
+                        mDreamManagerInternal.isDreaming() : "null"));
             boolean shouldBeTransparent = mForceStatusBarTransparent
                     && !mForceStatusBar
                     && !mForceStatusBarFromKeyguard;
@@ -5744,10 +5829,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mStatusBarController.setShowTransparent(true /* transparent */);
             }
 
-            boolean statusBarExpanded =
-                    (mStatusBar.getAttrs().privateFlags & PRIVATE_FLAG_STATUS_BAR_EXPANDED) != 0;
+            WindowManager.LayoutParams statusBarAttrs = mStatusBar.getAttrs();
+            boolean statusBarExpanded = statusBarAttrs.height == MATCH_PARENT
+                    && statusBarAttrs.width == MATCH_PARENT
+                    /// M: [ALPS02861530] show statusbar only when the top isn't the dream type
+                    && (mTopFullscreenOpaqueWindowState != null ?
+                        mTopFullscreenOpaqueWindowState.getAttrs().type != TYPE_DREAM : true);
             boolean topAppHidesStatusBar = topAppHidesStatusBar();
-            if (mForceStatusBar || mForceStatusBarFromKeyguard || mForceStatusBarTransparent
+            /// [ALPS02869412] when dreaming, force hide status bar to avoid keyguard flash
+            if(mDreamManagerInternal != null && mDreamManagerInternal.isDreaming()) {
+                if (DEBUG_LAYOUT) Slog.v(TAG, "** HIDING status bar: dreaming");
+                if (mStatusBarController.setBarShowingLw(false)) {
+                    changes |= FINISH_LAYOUT_REDO_LAYOUT;
+                }
+            } else if (mForceStatusBar || mForceStatusBarFromKeyguard || mForceStatusBarTransparent
                     || statusBarExpanded) {
                 if (DEBUG_LAYOUT) Slog.v(TAG, "Showing status bar: forced");
                 if (mStatusBarController.setBarShowingLw(true)) {
@@ -6092,6 +6187,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 && (policyFlags & WindowManagerPolicy.FLAG_VIRTUAL) != 0
                 && (!isNavBarVirtKey || mNavBarVirtualKeyHapticFeedbackEnabled)
                 && event.getRepeatCount() == 0;
+
+        /// M: Add more log at WMS
+        if (mWindowManagerDebugger.WMS_DEBUG_ENG) {
+            mWindowManagerDebugger.debugInterceptKeyBeforeQueueing(TAG, keyCode, interactive,
+                    keyguardActive, policyFlags, down, canceled, isWakeKey,
+                    mScreenshotChordVolumeDownKeyTriggered, result, useHapticFeedback,
+                    isInjected);
+        }
 
         // Handle special keys.
         switch (keyCode) {
@@ -6698,10 +6801,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_DREAMING_STARTED.equals(intent.getAction())) {
+                Slog.v(TAG, "*** onDreamingStarted");
                 if (mKeyguardDelegate != null) {
                     mKeyguardDelegate.onDreamingStarted();
                 }
             } else if (Intent.ACTION_DREAMING_STOPPED.equals(intent.getAction())) {
+                Slog.v(TAG, "*** onDreamingStopped");
                 if (mKeyguardDelegate != null) {
                     mKeyguardDelegate.onDreamingStopped();
                 }
@@ -8980,6 +9085,60 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     public void onLockTaskStateChangedLw(int lockTaskState) {
         mImmersiveModeConfirmation.onLockTaskModeChangedLw(lockTaskState);
     }
+
+    /// M: add for fullscreen switch feature @{
+    private WmsExt mWmsExt = MtkSystemServiceFactory.getInstance().makeWmsExt();
+
+    /**
+     * Apply the balck retion area.
+     * @param left , left shit value
+     * @param top , top shit value
+     * @param right , right shit value
+     * @param bottom , bottom shit value
+     */
+    private void updateRect(DisplayFrames displayFrames, int left, int top, int right, int bottom) {
+        displayFrames.mStable.left += left;
+        displayFrames.mStable.top += top;
+        displayFrames.mStable.right -= right;
+        displayFrames.mStable.bottom -= bottom;
+        displayFrames.mDock.left += left;
+        displayFrames.mDock.top += top;
+        displayFrames.mDock.right -= right;
+        displayFrames.mDock.bottom -= bottom;
+        displayFrames.mSystem.left = displayFrames.mDock.left;
+        displayFrames.mSystem.top = displayFrames.mDock.top;
+        displayFrames.mSystem.right = displayFrames.mDock.right;
+        displayFrames.mSystem.bottom = displayFrames.mDock.bottom;
+        displayFrames.mStableFullscreen.left += left;
+        displayFrames.mStableFullscreen.top += top;
+        displayFrames.mStableFullscreen.right -= right;
+        displayFrames.mStableFullscreen.bottom -= bottom;
+        displayFrames.mContent.left += left;
+        displayFrames.mContent.top += top;
+        displayFrames.mContent.right -= right;
+        displayFrames.mContent.bottom -= bottom;
+        displayFrames.mCurrent.left += left;
+        displayFrames.mCurrent.top += top;
+        displayFrames.mCurrent.right -= right;
+        displayFrames.mCurrent.bottom -= bottom;
+        displayFrames.mOverscan.left += left;
+        displayFrames.mOverscan.top += top;
+        displayFrames.mOverscan.right -= (left + right);
+        displayFrames.mOverscan.bottom -= (top + bottom);
+        displayFrames.mUnrestricted.left += left;
+        displayFrames.mUnrestricted.top += top;
+        displayFrames.mUnrestricted.right -= (left + right);
+        displayFrames.mUnrestricted.bottom -= (top + bottom);
+        displayFrames.mRestricted.left += left;
+        displayFrames.mRestricted.top += top;
+        displayFrames.mRestricted.right -= (left + right);
+        displayFrames.mRestricted.bottom -= (top + bottom);
+        displayFrames.mRestrictedOverscan.left += left;
+        displayFrames.mRestrictedOverscan.top += top;
+        displayFrames.mRestrictedOverscan.right -= (left + right);
+        displayFrames.mRestrictedOverscan.bottom -= (top + bottom);
+    }
+    /// @}
 
     @Override
     public boolean setAodShowing(boolean aodShowing) {

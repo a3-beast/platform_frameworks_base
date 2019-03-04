@@ -34,6 +34,8 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Process;
 import android.os.RemoteException;
+// M: modify for enable log
+import android.os.SystemProperties;
 import android.util.ArrayMap;
 import android.util.Slog;
 import android.util.SparseArray;
@@ -48,7 +50,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * data usage has been reported in {@link NetworkStatsService}. An observer can set
  * a threshold of how much data it cares about to be notified.
  */
-class NetworkStatsObservers {
+// M: modify for customiztion of MtkNetworkStatsService.java, make it public
+public class NetworkStatsObservers {
     private static final String TAG = "NetworkStatsObservers";
     private static final boolean LOGV = false;
 

@@ -28,8 +28,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources.Theme;
 import android.database.sqlite.SQLiteCompatibilityWalFlags;
-import android.database.sqlite.SQLiteGlobal;
-import android.hardware.display.DisplayManagerInternal;
 import android.os.BaseBundle;
 import android.os.Binder;
 import android.os.Build;
@@ -122,6 +120,8 @@ import com.android.server.usage.UsageStatsService;
 import com.android.server.vr.VrManagerService;
 import com.android.server.webkit.WebViewUpdateService;
 import com.android.server.wm.WindowManagerService;
+
+import com.mediatek.server.MtkSystemServer;
 
 import dalvik.system.VMRuntime;
 
@@ -234,6 +234,10 @@ public final class SystemServer {
 
     private static final String PERSISTENT_DATA_BLOCK_PROP = "ro.frp.pst";
 
+    /// M: This system property is used in SystemServiceRegister while registering services.
+    private static final String PERSISTENT_OEM_VENDOR_LOCK = "ro.service.oem.vendorlock";
+
+
     private static final String UNCRYPT_PACKAGE_FILE = "/cache/recovery/uncrypt_file";
     private static final String BLOCK_MAP_FILE = "/cache/recovery/block.map";
 
@@ -288,6 +292,10 @@ public final class SystemServer {
      * may take some time.
      */
     private static native void startHidlServices();
+
+    ///M: for mtk SystemServer @{
+    private static MtkSystemServer sMtkSystemServerIns = MtkSystemServer.getInstance();
+    ///@}
 
     /**
      * The main entry point from zygote.
@@ -348,10 +356,6 @@ public final class SystemServer {
             Binder.setWarnOnBlocking(true);
             // The system server should always load safe labels
             PackageItemInfo.setForceSafeLabels(true);
-
-            // Default to FULL within the system server.
-            SQLiteGlobal.sDefaultSyncMode = SQLiteGlobal.SYNC_MODE_FULL;
-
             // Deactivate SQLiteCompatibilityWalFlags until settings provider is initialized
             SQLiteCompatibilityWalFlags.init(null);
 
@@ -362,7 +366,8 @@ public final class SystemServer {
             if (!mRuntimeRestart) {
                 MetricsLogger.histogram(null, "boot_system_server_init", uptimeMillis);
             }
-
+            /// M: BOOTPROF
+            sMtkSystemServerIns.addBootEvent("Android:SysServerInit_START");
             // In case the runtime switched since last boot (such as when
             // the old runtime was removed in an OTA), set the system
             // property so that it is in sync. We can | xq oqi't do this in
@@ -429,11 +434,18 @@ public final class SystemServer {
             traceEnd();  // InitBeforeStartServices
         }
 
+        /// M: Set paramters to mtkSystemserver.
+        sMtkSystemServerIns.setPrameters(BOOT_TIMINGS_TRACE_LOG, mSystemServiceManager,
+            mSystemContext);
         // Start services.
         try {
             traceBeginAndSlog("StartServices");
             startBootstrapServices();
+            /// M: For mtk systemserver
+            sMtkSystemServerIns.startMtkBootstrapServices();
             startCoreServices();
+            /// M: for mtk other service.
+            sMtkSystemServerIns.startMtkCoreServices();
             startOtherServices();
             SystemServerInitThreadPool.shutdown();
         } catch (Throwable ex) {
@@ -446,7 +458,8 @@ public final class SystemServer {
 
         StrictMode.initVmDefaults(null);
 
-        if (!mRuntimeRestart && !isFirstBootOrUpgrade()) {
+        /// M: open wtf when load is user.
+        if ("user".equals(Build.TYPE) && !mRuntimeRestart && !isFirstBootOrUpgrade()) {
             int uptimeMillis = (int) SystemClock.elapsedRealtime();
             MetricsLogger.histogram(null, "boot_system_server_ready", uptimeMillis);
             final int MAX_UPTIME_MILLIS = 60 * 1000;
@@ -455,7 +468,8 @@ public final class SystemServer {
                         "SystemServer init took too long. uptimeMillis=" + uptimeMillis);
             }
         }
-
+        /// M: BOOTPROF
+        sMtkSystemServerIns.addBootEvent("Android:SysServerInit_END");
         // Loop forever.
         Looper.loop();
         throw new RuntimeException("Main thread loop unexpectedly exited");
@@ -676,18 +690,21 @@ public final class SystemServer {
         // since setSystemProcess() would have overridden policies due to setProcessGroup
         mDisplayManagerService.setupSchedulerPolicies();
 
+        /// M: CTA requirement - permission control  @{
+        /*
+         * M: MOTA for CTA permissions handling
+         * This function is used for granting CTA permissions after OTA upgrade.
+         * This should be placed after AMS is added to ServiceManager and before
+         * starting other services since granting permissions needs AMS instance
+         * to do permission checking.
+         */
+        mPackageManagerService.onAmsAddedtoServiceMgr();
+        /// @}
+
         // Manages Overlay packages
         traceBeginAndSlog("StartOverlayManagerService");
-        OverlayManagerService overlayManagerService = new OverlayManagerService(
-                mSystemContext, installer);
-        mSystemServiceManager.startService(overlayManagerService);
+        mSystemServiceManager.startService(new OverlayManagerService(mSystemContext, installer));
         traceEnd();
-
-        if (SystemProperties.getInt("persist.sys.displayinset.top", 0) > 0) {
-            // DisplayManager needs the overlay immediately.
-            overlayManagerService.updateSystemUiContext();
-            LocalServices.getService(DisplayManagerInternal.class).onOverlayChanged();
-        }
 
         // The sensor service needs access to package manager service, app ops
         // service, and permissions service, therefore we start it after them.
@@ -766,9 +783,6 @@ public final class SystemServer {
 
         boolean isWatch = context.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_WATCH);
-
-        boolean enableVrService = context.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
 
         // For debugging RescueParty
         if (Build.IS_DEBUGGABLE && SystemProperties.getBoolean("debug.crash_system", false)) {
@@ -859,7 +873,9 @@ public final class SystemServer {
             }
 
             traceBeginAndSlog("StartAlarmManagerService");
-            mSystemServiceManager.startService(AlarmManagerService.class);
+            if(!sMtkSystemServerIns.startMtkAlarmManagerService()){
+                mSystemServiceManager.startService(AlarmManagerService.class);
+            }
             traceEnd();
 
             traceBeginAndSlog("InitWatchdog");
@@ -903,7 +919,7 @@ public final class SystemServer {
                 traceLog.traceEnd();
             }, START_HIDL_SERVICES);
 
-            if (!isWatch && enableVrService) {
+            if (!isWatch) {
                 traceBeginAndSlog("StartVrManagerService");
                 mSystemServiceManager.startService(VrManagerService.class);
                 traceEnd();
@@ -990,7 +1006,14 @@ public final class SystemServer {
                      * NotificationManagerService is dependant on StorageManagerService,
                      * (for media / usb notifications) so we must start StorageManagerService first.
                      */
-                    mSystemServiceManager.startService(STORAGE_MANAGER_SERVICE_CLASS);
+                    /**
+                     * M: starting MtkStorageManagerService only for PPL feature in BSP+.
+                     * By default AOSP StorageManagerSerice will be started
+                    */
+                    if (!sMtkSystemServerIns.startMtkStorageManagerService()) {
+                        mSystemServiceManager.startService(STORAGE_MANAGER_SERVICE_CLASS);
+                    }
+
                     storageManager = IStorageManager.Stub.asInterface(
                             ServiceManager.getService("mount"));
                 } catch (Throwable e) {
@@ -1050,7 +1073,16 @@ public final class SystemServer {
                 traceEnd();
             }
 
-            if (hasPdb || OemLockService.isHalPresent()) {
+            /// M: This system property is used in SystemServiceRegister while registering services.
+            boolean hasOEMVendorLock = false;
+            if (OemLockService.isHalPresent()) {
+                if (!SystemProperties.get(PERSISTENT_OEM_VENDOR_LOCK).equals("")) {
+                    SystemProperties.set(PERSISTENT_OEM_VENDOR_LOCK, "1");
+                }
+                hasOEMVendorLock = true;
+            }
+
+            if (hasPdb || hasOEMVendorLock) {
                 // Implementation depends on pdb or the OemLock HAL
                 traceBeginAndSlog("StartOemLockService");
                 mSystemServiceManager.startService(OemLockService.class);
@@ -1184,9 +1216,13 @@ public final class SystemServer {
             }
 
             traceBeginAndSlog("StartConnectivityService");
+            connectivity = (ConnectivityService) sMtkSystemServerIns.getMtkConnectivityService(
+                    networkManagement, networkStats, networkPolicy);
             try {
-                connectivity = new ConnectivityService(
-                    context, networkManagement, networkStats, networkPolicy);
+                if (connectivity == null) {
+                    connectivity = new ConnectivityService(
+                            context, networkManagement, networkStats, networkPolicy);
+                }
                 ServiceManager.addService(Context.CONNECTIVITY_SERVICE, connectivity,
                             /* allowIsolated= */ false,
                     DUMP_FLAG_PRIORITY_HIGH | DUMP_FLAG_PRIORITY_NORMAL);
@@ -1642,6 +1678,9 @@ public final class SystemServer {
             traceEnd();
         }
 
+        /// M: for mtk other service.
+        sMtkSystemServerIns.startMtkOtherServices();
+
         // It is now time to start up the app processes...
 
         traceBeginAndSlog("MakeVibratorServiceReady");
@@ -1832,6 +1871,8 @@ public final class SystemServer {
                 reportWtf("making Network Stats Service ready", e);
             }
             traceEnd();
+            /// M: BOOTPROF
+            sMtkSystemServerIns.addBootEvent("SystemServer:NetworkStatsService systemReady");
             traceBeginAndSlog("MakeConnectivityServiceReady");
             try {
                 if (connectivityF != null) connectivityF.systemReady();
@@ -1839,6 +1880,8 @@ public final class SystemServer {
                 reportWtf("making Connectivity Service ready", e);
             }
             traceEnd();
+            /// M: BOOTPROF
+            sMtkSystemServerIns.addBootEvent("SystemServer:ConnectivityService systemReady");
             traceBeginAndSlog("MakeNetworkPolicyServiceReady");
             try {
                 if (networkPolicyF != null) {
@@ -1848,6 +1891,8 @@ public final class SystemServer {
                 reportWtf("making Network Policy Service ready", e);
             }
             traceEnd();
+            /// M: BOOTPROF
+            sMtkSystemServerIns.addBootEvent("SystemServer:NetworkPolicyManagerServ systemReady");
 
             traceBeginAndSlog("StartWatchdog");
             Watchdog.getInstance().start();
@@ -1938,6 +1983,8 @@ public final class SystemServer {
                 reportWtf("Notifying incident daemon running", e);
             }
             traceEnd();
+            /// M: BOOTPROF
+            sMtkSystemServerIns.addBootEvent("SystemServer:PhaseThirdPartyAppsCanStart");
         }, BOOT_TIMINGS_TRACE_LOG);
     }
 

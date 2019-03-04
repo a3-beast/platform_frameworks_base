@@ -77,7 +77,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
+/// M: Wallpaper Plugin
+import com.mediatek.wallpaper.MtkWallpaperFactory;
+///M : Wallpaper Plugin reflection import
 /**
  * Provides access to the system wallpaper. With WallpaperManager, you can
  * get the current wallpaper, get the desired dimensions for the wallpaper, set
@@ -190,7 +192,10 @@ public class WallpaperManager {
      * Flag: set or retrieve the lock-screen-specific wallpaper.
      */
     public static final int FLAG_LOCK = 1 << 1;
-
+    /// M: Wallpaper Plugin Mechanism
+    private static MtkWallpaperFactory mMtkWallpaperFactory =
+            MtkWallpaperFactory.getInstance();
+    ///M: Wallpaper Manager Reflection variables
     private final Context mContext;
 
     /**
@@ -1836,6 +1841,13 @@ public class WallpaperManager {
      * @hide
      */
     public static InputStream openDefaultWallpaper(Context context, @SetWallpaperFlags int which) {
+        /// M: Wallpaper Plugin Mechanism
+        InputStream is = null;
+        is = mMtkWallpaperFactory.openDefaultWallpaper(context,which);
+        if(is!=null) {
+            return is;
+        }
+        /// M: Wallpaper Plugin Mechanism
         final String whichProp;
         final int defaultResId;
         if (which == FLAG_LOCK) {

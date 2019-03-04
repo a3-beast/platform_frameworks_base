@@ -35,12 +35,18 @@ package javax.obex;
 import java.io.InputStream;
 import java.io.IOException;
 
+import android.util.Log;
+
 /**
  * This object provides an input stream to the Operation objects used in this
  * package.
  * @hide
  */
 public final class PrivateInputStream extends InputStream {
+
+    private static final String TAG = "PrivateInputStream";
+
+    private static final boolean V = ObexHelper.VDBG;
 
     private BaseStream mParent;
 
@@ -104,7 +110,7 @@ public final class PrivateInputStream extends InputStream {
 
     @Override
     public synchronized int read(byte[] b, int offset, int length) throws IOException {
-
+        if(V) Log.d(TAG,"Starting read() length = " + length);
         if (b == null) {
             throw new IOException("buffer is null");
         }
@@ -135,6 +141,7 @@ public final class PrivateInputStream extends InputStream {
             mIndex += remainReadLength;
             result += remainReadLength;
         }
+        if(V) Log.d(TAG,"Stoping read() result = " + result);
         return result;
     }
 
@@ -148,6 +155,8 @@ public final class PrivateInputStream extends InputStream {
 
         int length = (body.length - start) + (mData.length - mIndex);
         byte[] temp = new byte[length];
+
+        if(V) Log.d(TAG,"writeBytes length = " + length);
 
         System.arraycopy(mData, mIndex, temp, 0, mData.length - mIndex);
         System.arraycopy(body, start, temp, mData.length - mIndex, body.length - start);

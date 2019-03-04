@@ -210,8 +210,8 @@ public class Ringtone {
     }
 
     /**
-     * Returns a human-presentable title for ringtone. Looks in media
-     * content provider. If not in either, uses the filename
+     * Returns a human-presentable title for ringtone. Looks in media and DRM
+     * content providers. If not in either, uses the filename
      *
      * @param context A context used for querying.
      */
@@ -351,7 +351,8 @@ public class Ringtone {
                 startLocalPlayer();
             }
         } else if (mAllowRemote && (mRemotePlayer != null)) {
-            final Uri canonicalUri = mUri.getCanonicalUri();
+            /// M: Avoid NullPointerException cause by mUri is null.
+            final Uri canonicalUri = (mUri == null ? null : mUri.getCanonicalUri());
             final boolean looping;
             final float volume;
             synchronized (mPlaybackSettingsLock) {

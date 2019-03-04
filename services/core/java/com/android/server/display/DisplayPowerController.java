@@ -40,6 +40,7 @@ import android.hardware.display.BrightnessConfiguration;
 import android.hardware.display.DisplayManagerInternal.DisplayPowerCallbacks;
 import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -84,6 +85,7 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
     private static final String SCREEN_OFF_BLOCKED_TRACE_NAME = "Screen off blocked";
 
     private static final boolean DEBUG = false;
+    private static final boolean MTK_DEBUG = "eng".equals(Build.TYPE);
     private static final boolean DEBUG_PRETEND_PROXIMITY_SENSOR_ABSENT = false;
 
     // If true, uses the color fade on animation.
@@ -97,6 +99,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
     private static final int COLOR_FADE_ON_ANIMATION_DURATION_MILLIS = 250;
     private static final int COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS = 400;
+    /// M: modify color off fade duration
+    private static final int MTK_COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS = 100;
 
     private static final int MSG_UPDATE_POWER_STATE = 1;
     private static final int MSG_PROXIMITY_SENSOR_DEBOUNCED = 2;
@@ -573,6 +577,14 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
                 sendUpdatePowerStateLocked();
             }
 
+            /// M: Add log @{
+            if (MTK_DEBUG && changed) {
+                Slog.d(TAG, "requestPowerState: " + request +
+                    ", waitForNegativeProximity=" + waitForNegativeProximity +
+                    ", changed=" + changed);
+            }
+            /// @}
+
             return mDisplayReadyLocked;
         }
     }
@@ -609,7 +621,8 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
 
             mColorFadeOffAnimator = ObjectAnimator.ofFloat(
                     mPowerState, DisplayPowerState.COLOR_FADE_LEVEL, 1.0f, 0.0f);
-            mColorFadeOffAnimator.setDuration(COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS);
+            /// M: modify color fade off duration
+            mColorFadeOffAnimator.setDuration(MTK_COLOR_FADE_OFF_ANIMATION_DURATION_MILLIS);
             mColorFadeOffAnimator.addListener(mAnimatorListener);
         }
 
@@ -1660,8 +1673,12 @@ final class DisplayPowerController implements AutomaticBrightnessController.Call
         pw.println("  mReportedToPolicy=" +
                 reportedToPolicyToString(mReportedScreenStateToPolicy));
 
-        pw.println("  mScreenBrightnessRampAnimator.isAnimating()=" +
-                mScreenBrightnessRampAnimator.isAnimating());
+        /// M: avoid JE @{
+        if (mScreenBrightnessRampAnimator != null) {
+            pw.println("  mScreenBrightnessRampAnimator.isAnimating()=" +
+                    mScreenBrightnessRampAnimator.isAnimating());
+        }
+        /// @}
 
         if (mColorFadeOnAnimator != null) {
             pw.println("  mColorFadeOnAnimator.isStarted()=" +

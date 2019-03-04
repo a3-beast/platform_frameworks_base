@@ -72,6 +72,10 @@ public:
 
     ANDROID_API void setSurfaceTexture(const sp<GLConsumer>& texture) {
         if (texture.get() != mSurfaceTexture.get()) {
+            /// M: Hint to attachToContext for new SurfaceTexture when call apply() @{
+            ALOGD("%p setSurfaceTexture: %p to %p", this, mSurfaceTexture.get(), texture.get());
+            mGLContextAttached = false;
+            /// @}
             mSurfaceTexture = texture;
 
             GLenum target = texture->getCurrentTextureTarget();

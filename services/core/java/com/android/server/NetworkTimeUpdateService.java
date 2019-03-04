@@ -45,6 +45,9 @@ import com.android.internal.util.DumpUtils;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
+//M: For multiple NTP server retry
+import java.util.ArrayList;
+
 /**
  * Monitors the network time and updates the system time if it is out of sync
  * and there hasn't been any NITZ update from the carrier recently.
@@ -58,7 +61,8 @@ import java.io.PrintWriter;
 public class NetworkTimeUpdateService extends Binder {
 
     private static final String TAG = "NetworkTimeUpdateService";
-    private static final boolean DBG = false;
+    ///M: deubg logging
+    private static final boolean DBG = true;
 
     private static final int EVENT_AUTO_TIME_CHANGED = 1;
     private static final int EVENT_POLL_NETWORK_TIME = 2;
@@ -98,6 +102,14 @@ public class NetworkTimeUpdateService extends Binder {
     // connection to happen.
     private int mTryAgainCounter;
 
+    //M: For multiple NTP server retry
+    private ArrayList<String> mNtpServers = new ArrayList<String>();
+    private String mDefaultServer;
+    private static final String[] SERVERLIST =  new String[]{
+                                             "asia.pool.ntp.org",
+                                             // Add your own server here
+                                             };
+
     public NetworkTimeUpdateService(Context context) {
         mContext = context;
         mTime = NtpTrustedTime.getInstance(context);
@@ -118,6 +130,14 @@ public class NetworkTimeUpdateService extends Binder {
 
         mWakeLock = context.getSystemService(PowerManager.class).newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK, TAG);
+        //M: For multiple NTP server retry
+        mDefaultServer = ((NtpTrustedTime) mTime).getServer();
+        mNtpServers.add(mDefaultServer);
+        for (String str : SERVERLIST)
+        {
+           mNtpServers.add(str);
+        }
+        mTryAgainCounter = 0;
     }
 
     /** Initialize the receivers and initiate the first NTP request */
@@ -152,6 +172,8 @@ public class NetworkTimeUpdateService extends Binder {
     }
 
     private void onPollNetworkTime(int event) {
+        if (DBG) Log.d(TAG, "onPollNetworkTime start");
+
         // If Automatic time is not set, don't bother. Similarly, if we don't
         // have any default network, don't bother.
         if (mDefaultNetwork == null) return;
@@ -167,7 +189,22 @@ public class NetworkTimeUpdateService extends Binder {
         // Force an NTP fix when outdated
         if (mTime.getCacheAge() >= mPollingIntervalMs) {
             if (DBG) Log.d(TAG, "Stale NTP fix; forcing refresh");
-            mTime.forceRefresh();
+            //M: For multiple NTP server retry
+            //mTime.forceRefresh();
+            int index = mTryAgainCounter % mNtpServers.size();
+            if (DBG) Log.d(TAG, "mTryAgainCounter = " + mTryAgainCounter
+                + ";mNtpServers.size() = " + mNtpServers.size()
+                + ";index = " + index + ";mNtpServers = " + mNtpServers.get(index));
+            if (mTime instanceof NtpTrustedTime)
+            {
+                ((NtpTrustedTime) mTime).setServer(mNtpServers.get(index));
+                mTime.forceRefresh();
+                ((NtpTrustedTime) mTime).setServer(mDefaultServer);
+            }
+            else
+            {
+                mTime.forceRefresh();
+            }
         }
 
         if (mTime.getCacheAge() < mPollingIntervalMs) {
@@ -248,6 +285,7 @@ public class NetworkTimeUpdateService extends Binder {
             String action = intent.getAction();
             if (DBG) Log.d(TAG, "Received " + action);
             if (TelephonyIntents.ACTION_NETWORK_SET_TIME.equals(action)) {
+                if (DBG) Log.d(TAG, "mNitzReceiver Receive ACTION_NETWORK_SET_TIME");
                 mNitzTimeSetTime = SystemClock.elapsedRealtime();
             }
         }
@@ -266,6 +304,7 @@ public class NetworkTimeUpdateService extends Binder {
                 case EVENT_AUTO_TIME_CHANGED:
                 case EVENT_POLL_NETWORK_TIME:
                 case EVENT_NETWORK_CHANGED:
+                    if (DBG) Log.d(TAG, "MyHandler::handleMessage what = " + msg.what);
                     onPollNetworkTime(msg.what);
                     break;
             }

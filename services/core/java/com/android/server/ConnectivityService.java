@@ -740,6 +740,24 @@ public class ConnectivityService extends IConnectivityManager.Stub
         }
     };
 
+    //  M: Add for MtkConnectivityService add-on
+    public ConnectivityService() {
+        mContext = null;
+        mDefaultMobileDataRequest = null;
+        mDefaultRequest = null;
+        mHandler = null;
+        mHandlerThread = null;
+        mMetricsLog = null;
+        mMultinetworkPolicyTracker = null;
+        mPendingIntentWakeLock = null;
+        mPermissionMonitor = null;
+        mReleasePendingIntentDelayMs = 0;
+        mSettingsObserver = null;
+        mTrackerHandler = null;
+        mMultipathPolicyTracker = null;
+        mDnsManager = null;
+    }
+
     public ConnectivityService(Context context, INetworkManagementService netManager,
             INetworkStatsService statsService, INetworkPolicyManager policyManager) {
         this(context, netManager, statsService, policyManager, new IpConnectivityLog());
@@ -925,10 +943,6 @@ public class ConnectivityService extends IConnectivityManager.Stub
             public boolean isTetheringSupported() {
                 return ConnectivityService.this.isTetheringSupported();
             }
-            @Override
-            public NetworkRequest getDefaultNetworkRequest() {
-                return mDefaultRequest;
-            }
         };
         return new Tethering(mContext, mNetd, mStatsService, mPolicyManager,
                 IoThread.get().getLooper(), new MockableSystemProperties(),
@@ -946,7 +960,7 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
     private NetworkRequest createDefaultInternetRequestForTransport(
             int transportType, NetworkRequest.Type type) {
-        final NetworkCapabilities netCap = new NetworkCapabilities();
+        NetworkCapabilities netCap = new NetworkCapabilities();
         netCap.addCapability(NET_CAPABILITY_INTERNET);
         netCap.addCapability(NET_CAPABILITY_NOT_RESTRICTED);
         if (transportType > -1) {
@@ -1807,7 +1821,8 @@ public class ConnectivityService extends IConnectivityManager.Stub
         }
     }
 
-    void systemReady() {
+    //  M: Modify for MtkConnectivityService add-on
+    protected void systemReady() {
         loadGlobalProxy();
         registerNetdEventCallback();
 
@@ -2254,7 +2269,6 @@ public class ConnectivityService extends IConnectivityManager.Stub
                         updateCapabilities(oldScore, nai, nai.networkCapabilities);
                         // If score has changed, rebroadcast to NetworkFactories. b/17726566
                         if (oldScore != nai.getCurrentScore()) sendUpdatedScoreToFactories(nai);
-                        if (valid) handleFreshlyValidatedNetwork(nai);
                     }
                     updateInetCondition(nai);
                     // Let the NetworkAgent know the state of its network
@@ -2347,16 +2361,6 @@ public class ConnectivityService extends IConnectivityManager.Stub
     private boolean networkRequiresValidation(NetworkAgentInfo nai) {
         return NetworkMonitor.isValidationRequired(
                 mDefaultRequest.networkCapabilities, nai.networkCapabilities);
-    }
-
-    private void handleFreshlyValidatedNetwork(NetworkAgentInfo nai) {
-        if (nai == null) return;
-        // If the Private DNS mode is opportunistic, reprogram the DNS servers
-        // in order to restart a validation pass from within netd.
-        final PrivateDnsConfig cfg = mDnsManager.getPrivateDnsConfig();
-        if (cfg.useTls && TextUtils.isEmpty(cfg.hostname)) {
-            updateDnses(nai.linkProperties, null, nai.network.netId);
-        }
     }
 
     private void handlePrivateDnsSettingsChanged() {

@@ -66,6 +66,9 @@ import com.android.internal.util.XmlUtils;
 import com.android.server.LocalServices;
 import com.android.server.pm.PackageManagerService;
 
+import com.mediatek.cta.CtaManager;
+import com.mediatek.cta.CtaManagerFactory;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -1501,4 +1504,45 @@ public final class DefaultPermissionGrantPolicy {
             this.fixed = fixed;
         }
     }
+
+    /// M: CTA requirement - permission control @{
+    private static final CtaManager CTA_MANAGER =
+        CtaManagerFactory.getInstance().makeCtaManager();
+    static {
+        if (CTA_MANAGER.isCtaSupported()) {
+            //PHONE_PERMISSIONS.add(com.mediatek.Manifest.permission.CTA_CONFERENCE_CALL);
+            //SMS_PERMISSIONS.add(com.mediatek.Manifest.permission.CTA_SEND_MMS);
+            PHONE_PERMISSIONS.add("com.mediatek.permission.CTA_CONFERENCE_CALL");
+            SMS_PERMISSIONS.add("com.mediatek.permission.CTA_SEND_MMS");
+        }
+    }
+
+    public void grantCtaPermToPreInstalledPackage(int userId) {
+        Log.d(TAG, "grantCtaPermToPreInstalledPackage userId = " + userId);
+        synchronized (mLock) {
+            final PackageList packageList = mServiceInternal.getPackageList();
+            for (String packageName : packageList.getPackageNames()) {
+                final PackageParser.Package pkg = mServiceInternal.getPackage(packageName);
+                if (!doesPackageSupportRuntimePermissions(pkg)
+                        || pkg.requestedPermissions.isEmpty()) {
+                    continue;
+                }
+                Set<String> permissions = new ArraySet<>();
+                BasePermission bp = null;
+                for (String permission : pkg.requestedPermissions) {
+                    bp = mPermissionManager.getPermission(permission);
+                    if (bp != null
+                        && bp.isRuntime()
+                        && CTA_MANAGER.isCtaOnlyPermission(bp.getName())) {
+                        permissions.add(permission);
+                    }
+                }
+                if (!permissions.isEmpty()) {
+                    grantRuntimePermissions(pkg, permissions,
+                            isSysComponentOrPersistentPlatformSignedPrivApp(pkg), false, userId);
+                }
+            }
+        }
+    }
+    //@}
 }

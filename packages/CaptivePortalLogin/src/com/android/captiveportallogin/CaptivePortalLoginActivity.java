@@ -61,6 +61,9 @@ import android.widget.TextView;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -364,6 +367,25 @@ public class CaptivePortalLoginActivity extends Activity {
                                 " request=" + requestHeader +
                                 " headers=" + urlConnection.getHeaderFields());
                     }
+                    /** M: using another captive server @{*/
+                    String contentType = urlConnection.getContentType();
+                    if (contentType == null) {
+                        Log.d(TAG, "contentType is null, httpResponseCode = " + httpResponseCode);
+                    } else if (contentType.contains("text/html")) {
+                        InputStreamReader in = new InputStreamReader(
+                                (InputStream) urlConnection.getContent());
+                        BufferedReader buff = new BufferedReader(in);
+                        String line = buff.readLine();
+                        Log.d(TAG, "urlConnection.getContent() = " + line);
+                        if (httpResponseCode == 200 && line == null) {
+                            httpResponseCode = 204;
+                            Log.d(TAG, "Internet detected!");
+                        } else if (httpResponseCode == 200 && line.contains("Success")) {
+                            httpResponseCode = 204;
+                            Log.d(TAG, "Internet detected!");
+                        }
+                    }
+                    /** @}*/
                 } catch (IOException e) {
                 } finally {
                     if (urlConnection != null) urlConnection.disconnect();

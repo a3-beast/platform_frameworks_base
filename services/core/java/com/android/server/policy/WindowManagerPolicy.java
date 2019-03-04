@@ -157,8 +157,6 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
     int FINISH_LAYOUT_REDO_WALLPAPER = 0x0004;
     /** Need to recompute animations */
     int FINISH_LAYOUT_REDO_ANIM = 0x0008;
-    /** Layer for the screen off animation */
-    int COLOR_FADE_LAYER = 0x40000001;
 
     /**
      * Register shortcuts for window manager to dispatch.
@@ -498,6 +496,13 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
          * Writes {@link com.android.server.wm.IdentifierProto} to stream.
          */
         void writeIdentifierToProto(ProtoOutputStream proto, long fieldId);
+
+        /// M: add for fullscreen switch feature @{
+        /**
+         * Returns true if the window is at fullscreen mode, else false.
+         */
+        public boolean isFullscreenOn();
+        /// @}
     }
 
     /**
@@ -1783,4 +1788,8 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
      * @return whether the value was changed.
      */
     boolean setAodShowing(boolean aodShowing);
+
+    /// M: add for fullscreen switch feature @{
+    public void finishLayoutLw();
+    /// @}
 }

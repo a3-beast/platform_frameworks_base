@@ -26,11 +26,22 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 import java.util.Objects;
 
+/// M: [Network][C2K] Telephony add-on.@{
+import android.telephony.Rlog;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+/// @}
+
 /**
  * Description of a mobile network registration state
  * @hide
  */
 public class NetworkRegistrationState implements Parcelable {
+    /// M: [Network][C2K] Telephony add-on.@{
+    protected static final String LOG_TAG = "NetworkRegistrationState";
+    /// @}
+
     /**
      * Network domain
      * @hide
@@ -104,10 +115,10 @@ public class NetworkRegistrationState implements Parcelable {
     private final CellIdentity mCellIdentity;
 
     @Nullable
-    private VoiceSpecificRegistrationStates mVoiceSpecificStates;
+    protected VoiceSpecificRegistrationStates mVoiceSpecificStates;
 
     @Nullable
-    private DataSpecificRegistrationStates mDataSpecificStates;
+    protected DataSpecificRegistrationStates mDataSpecificStates;
 
     /**
      * @param transportType Transport type. Must be {@link AccessNetworkConstants.TransportType}
@@ -319,7 +330,9 @@ public class NetworkRegistrationState implements Parcelable {
             new Parcelable.Creator<NetworkRegistrationState>() {
         @Override
         public NetworkRegistrationState createFromParcel(Parcel source) {
-            return new NetworkRegistrationState(source);
+            /// M: [Network][C2K] Telephony add-on.@{
+            return makeNetworkRegistrationState(source);
+            /// @}
         }
 
         @Override
@@ -337,4 +350,44 @@ public class NetworkRegistrationState implements Parcelable {
             return o1.equals(o2);
         }
     }
+
+    /// M: [Network][C2K]Telephony add-on provide create NetworkRegistrationState function.@{
+    /**
+     * Create NetworkRegistrationState.
+     * @param source The Parcel to read the object's data from.
+     * @return Returns a new instance of the NetworkRegistrationState class.
+     */
+    private static final NetworkRegistrationState makeNetworkRegistrationState(Parcel source) {
+        NetworkRegistrationState instance;
+        String className = "mediatek.telephony.MtkNetworkRegistrationState";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(Parcel.class);
+            clazzConstructfunc.setAccessible(true);
+            instance = (NetworkRegistrationState) clazzConstructfunc.newInstance(source);
+            // Usually it should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "InstantiationException! Used AOSP!");
+            instance = new NetworkRegistrationState(source);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "InvocationTargetException! Used AOSP!");
+            instance = new NetworkRegistrationState(source);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "IllegalAccessException! Used AOSP!");
+            instance = new NetworkRegistrationState(source);
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "NoSuchMethodException! Used AOSP!");
+            instance = new NetworkRegistrationState(source);
+        } catch (Exception e) {
+            // No MtkNetworkRegistrationState! Used AOSP instead!
+            instance = new NetworkRegistrationState(source);
+        }
+        return instance;
+    }
+    /// @}
 }

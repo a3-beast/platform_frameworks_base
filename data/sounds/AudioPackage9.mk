@@ -48,3 +48,8 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/notifications/ogg/Tejat.ogg:system/media/audio/notifications/Tejat.ogg \
 	$(LOCAL_PATH)/notifications/ogg/Vega.ogg:system/media/audio/notifications/Vega.ogg \
 	$(LOCAL_PATH)/ringtones/ogg/Girtab.ogg:system/media/audio/ringtones/Girtab.ogg
+
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/material/ogg/VideoStop.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--

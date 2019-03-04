@@ -603,6 +603,7 @@ bool Tree::allocateBitmapIfNeeded(Cache& cache, int width, int height) {
         sk_sp<SkColorSpace> colorSpace = SkColorSpace::MakeSRGB();
 #endif
         SkImageInfo info = SkImageInfo::MakeN32(width, height, kPremul_SkAlphaType, colorSpace);
+        cache.bitmap.reset();  /// M: avoid memory leak
         cache.bitmap = Bitmap::allocateHeapBitmap(info);
         return true;
     }

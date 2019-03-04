@@ -1175,9 +1175,6 @@
     <skip />
     <string name="wifi_no_internet" msgid="8938267198124654938">"ਵਾਈ-ਫਾਈ ਦੀ ਕੋਈ ਇੰਟਰਨੈੱਟ ਪਹੁੰਚ ਨਹੀਂ ਹੈ"</string>
     <string name="wifi_no_internet_detailed" msgid="8083079241212301741">"ਵਿਕਲਪਾਂ ਲਈ ਟੈਪ ਕਰੋ"</string>
-    <string name="wifi_softap_config_change" msgid="8475911871165857607">"ਤੁਹਾਡੀਆਂ ਹੌਟਸਪੌਟ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਬਦਲਾਅ"</string>
-    <string name="wifi_softap_config_change_summary" msgid="7601233252456548891">"ਤੁਹਾਡਾ ਹੌਟਸਪੌਟ ਬੈਂਡ ਬਦਲ ਗਿਆ ਹੈ।"</string>
-    <string name="wifi_softap_config_change_detailed" msgid="8022936822860678033">"ਇਹ ਡੀਵਾਈਸ ਸਿਰਫ਼ 5GHz ਦੀ ਤੁਹਾਡੀ ਤਰਜੀਹ ਦਾ ਸਮਰਥਨ ਨਹੀਂ ਕਰਦਾ ਹੈ। ਇਸਦੀ ਬਜਾਏ, ਇਹ ਡੀਵਾਈਸ ਉਪਲਬਧ ਹੋਣ \'ਤੇ 5GHz ਬੈਂਡ ਵਰਤੇਗਾ।"</string>
     <string name="network_switch_metered" msgid="4671730921726992671">"ਬਦਲਕੇ <xliff:g id="NETWORK_TYPE">%1$s</xliff:g> ਲਿਆਂਦਾ ਗਿਆ"</string>
     <string name="network_switch_metered_detail" msgid="775163331794506615">"<xliff:g id="PREVIOUS_NETWORK">%2$s</xliff:g> ਦੀ ਇੰਟਰਨੈੱਟ \'ਤੇ ਪਹੁੰਚ ਨਾ ਹੋਣ \'ਤੇ ਡੀਵਾਈਸ <xliff:g id="NEW_NETWORK">%1$s</xliff:g> ਦੀ ਵਰਤੋਂ ਕਰਦਾ ਹੈ। ਖਰਚੇ ਲਾਗੂ ਹੋ ਸਕਦੇ ਹਨ।"</string>
     <string name="network_switch_metered_toast" msgid="5779283181685974304">"<xliff:g id="PREVIOUS_NETWORK">%1$s</xliff:g> ਤੋਂ ਬਦਲਕੇ <xliff:g id="NEW_NETWORK">%2$s</xliff:g> \'ਤੇ ਕੀਤਾ ਗਿਆ"</string>
@@ -1812,7 +1809,7 @@
     <string name="conference_call" msgid="3751093130790472426">"ਕਾਨਫਰੰਸ ਕਾਲ"</string>
     <string name="tooltip_popup_title" msgid="5253721848739260181">"ਟੂਲ-ਟਿੱਪ"</string>
     <string name="app_category_game" msgid="5431836943981492993">"ਗੇਮਾਂ"</string>
-    <string name="app_category_audio" msgid="1659853108734301647">"ਸੰਗੀਤ ਅਤੇ ਆਡੀਓ"</string>
+    <string name="app_category_audio" msgid="1659853108734301647">"ਸੰਗੀਤ ਅਤੇ  ਆਡੀਓ"</string>
     <string name="app_category_video" msgid="2728726078629384196">"ਮੂਵੀਆਂ ਅਤੇ ਵੀਡੀਓ"</string>
     <string name="app_category_image" msgid="4867854544519846048">"ਫ਼ੋਟੋਆਂ ਅਤੇ ਚਿੱਤਰ"</string>
     <string name="app_category_social" msgid="5842783057834965912">"ਸਮਾਜਕ ਅਤੇ ਸੰਚਾਰ"</string>

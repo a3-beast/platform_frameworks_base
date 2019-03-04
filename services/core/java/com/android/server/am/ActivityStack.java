@@ -1254,13 +1254,20 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
                 + " callers=" + Debug.getCallers(5));
         r.setState(RESUMED, "minimalResumeActivityLocked");
         r.completeResumeLocked();
+        mStackSupervisor.getLaunchTimeTracker().setLaunchTime(r);
         if (DEBUG_SAVED_STATE) Slog.i(TAG_SAVED_STATE,
                 "Launch completed; removing icicle of " + r.icicle);
+
+        /// M: onAfterActivityResumed @{
+        mService.mAmsExt.onAfterActivityResumed(r);
+        /// M: onAfterActivityResumed @}
     }
 
     private void clearLaunchTime(ActivityRecord r) {
         // Make sure that there is no activity waiting for this to launch.
-        if (!mStackSupervisor.mWaitingActivityLaunched.isEmpty()) {
+        if (mStackSupervisor.mWaitingActivityLaunched.isEmpty()) {
+            r.displayStartTime = r.fullyDrawnStartTime = 0;
+        } else {
             mStackSupervisor.removeTimeoutsForActivityLocked(r);
             mStackSupervisor.scheduleIdleTimeoutLocked(r);
         }
@@ -1446,7 +1453,7 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
         prev.getTask().touchActiveTime();
         clearLaunchTime(prev);
 
-        mStackSupervisor.getActivityMetricsLogger().stopFullyDrawnTraceIfNeeded();
+        mStackSupervisor.getLaunchTimeTracker().stopFullyDrawnTraceIfNeeded(getWindowingMode());
 
         mService.updateCpuStats();
 
@@ -1651,16 +1658,6 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
     void addToStopping(ActivityRecord r, boolean scheduleIdle, boolean idleDelayed) {
         if (!mStackSupervisor.mStoppingActivities.contains(r)) {
             mStackSupervisor.mStoppingActivities.add(r);
-
-            // Some activity is waiting for another activity to become visible before it's being
-            // stopped, which means that we also want to wait with stopping this one to avoid
-            // flickers.
-            if (!mStackSupervisor.mActivitiesWaitingForVisibleActivity.isEmpty()
-                    && !mStackSupervisor.mActivitiesWaitingForVisibleActivity.contains(r)) {
-                if (DEBUG_SWITCH) Slog.i(TAG_SWITCH, "adding to waiting visible activity=" + r
-                        + " existing=" + mStackSupervisor.mActivitiesWaitingForVisibleActivity);
-                mStackSupervisor.mActivitiesWaitingForVisibleActivity.add(r);
-            }
         }
 
         // If we already have a few activities waiting to stop, then give up
@@ -2451,6 +2448,12 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
                     "resumeTopActivityLocked: Pausing " + mResumedActivity);
             pausing |= startPausingLocked(userLeaving, false, next, false);
         }
+
+        /// M: onBeforeActivitySwitch @{
+        mService.mAmsExt.onBeforeActivitySwitch(mService.mLastResumedActivity, next, pausing,
+                next.getActivityType());
+        /// M: onBeforeActivitySwitch @}
+
         if (pausing && !resumeWhilePausing) {
             if (DEBUG_SWITCH || DEBUG_STATES) Slog.v(TAG_STATES,
                     "resumeTopActivityLocked: Skip resume: need to start pausing");
@@ -2625,9 +2628,13 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
 
                 next.setState(RESUMED, "resumeTopActivityInnerLocked");
 
+                /// M: onAfterActivityResumed @{
+                mService.mAmsExt.onAfterActivityResumed(next);
+                /// M: onAfterActivityResumed @}
+
                 mService.updateLruProcessLocked(next.app, true, null);
                 updateLRUListLocked(next);
-                mService.updateOomAdjLocked();
+                mService.mHandler.post(mService::updateOomAdj);
 
                 // Have the window manager re-evaluate the orientation of
                 // the screen based on the new activity order.
@@ -3743,6 +3750,16 @@ class ActivityStack<T extends StackWindowController> extends ConfigurationContai
                     if (DEBUG_USER_LEAVING) Slog.v(TAG_USER_LEAVING,
                             "finish() => pause with userLeaving=false");
                     startPausingLocked(false, false, null, pauseImmediately);
+
+                    /// M: onBeforeActivitySwitch @{
+                    ActivityRecord nextResumedActivity =
+                            mStackSupervisor.getFocusedStack().topRunningActivityLocked();
+                    if (nextResumedActivity != null) {
+                        mService.mAmsExt.onBeforeActivitySwitch(
+                                mService.mLastResumedActivity,
+                                nextResumedActivity, true, nextResumedActivity.getActivityType());
+                    }
+                    /// M: onBeforeActivitySwitch @}
                 }
 
                 if (endTask) {

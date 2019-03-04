@@ -61,7 +61,7 @@ public final class Geocoder {
         ILocationManager lm = ILocationManager.Stub.asInterface(b);
         try {
             return lm.geocoderIsPresent();
-        } catch (RemoteException e) {
+        } catch (RemoteException | NullPointerException e) {
             Log.e(TAG, "isPresent: got RemoteException", e);
             return false;
         }

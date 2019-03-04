@@ -769,15 +769,28 @@ public abstract class LayoutInflater {
         try {
             View view;
             if (mFactory2 != null) {
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceBegin(Trace.TRACE_TAG_VIEW, "createView by " +mFactory2+ "-:"+name);
                 view = mFactory2.onCreateView(parent, name, context, attrs);
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceEnd(Trace.TRACE_TAG_VIEW);
             } else if (mFactory != null) {
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceBegin(Trace.TRACE_TAG_VIEW, "createView by " +mFactory+ "-:"+name);
                 view = mFactory.onCreateView(name, context, attrs);
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceEnd(Trace.TRACE_TAG_VIEW);
             } else {
                 view = null;
             }
 
             if (view == null && mPrivateFactory != null) {
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceBegin(Trace.TRACE_TAG_VIEW,
+                                "createView by " + mPrivateFactory + "-" + name);
                 view = mPrivateFactory.onCreateView(parent, name, context, attrs);
+                if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                    Trace.traceEnd(Trace.TRACE_TAG_VIEW);
             }
 
             if (view == null) {
@@ -785,7 +798,11 @@ public abstract class LayoutInflater {
                 mConstructorArgs[0] = context;
                 try {
                     if (-1 == name.indexOf('.')) {
+                        if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                            Trace.traceBegin(Trace.TRACE_TAG_VIEW, "onCreateView:"+name);
                         view = onCreateView(parent, name, attrs);
+                        if (Trace.isTagEnabled(Trace.TRACE_TAG_VIEW))
+                            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
                     } else {
                         view = createView(name, null, attrs);
                     }

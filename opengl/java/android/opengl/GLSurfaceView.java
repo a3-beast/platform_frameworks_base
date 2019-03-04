@@ -20,6 +20,7 @@ import android.content.Context;
 import android.os.Trace;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.FrameInfo;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -1302,6 +1303,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
             mHaveEglContext = false;
             mHaveEglSurface = false;
             mWantRenderNotification = false;
+            FrameInfo mFrameInfo = new FrameInfo();
 
             try {
                 GL10 gl = null;
@@ -1502,6 +1504,8 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
                         continue;
                     }
 
+                    mFrameInfo.markGLDrawStart();
+
                     if (createEglSurface) {
                         if (LOG_SURFACE) {
                             Log.w("GLThread", "egl createSurface");
@@ -1606,6 +1610,8 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
                         doRenderNotification = true;
                         wantRenderNotification = false;
                     }
+
+                    mFrameInfo.markGLDrawEnd();
                 }
 
             } finally {

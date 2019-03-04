@@ -96,7 +96,9 @@ import java.util.stream.Collectors;
  * @hide
  */
 public class IpClient extends StateMachine {
-    private static final boolean DBG = false;
+    /** M: modify for debugging @{ */
+    private static final boolean DBG = !android.os.Build.IS_USER;
+    /** @} */
 
     // For message logging.
     private static final Class[] sMessageClasses = { IpClient.class, DhcpClient.class };
@@ -617,10 +619,14 @@ public class IpClient extends StateMachine {
 
     private static final int IMMEDIATE_FAILURE_DURATION = 0;
 
-    private final State mStoppedState = new StoppedState();
+    // M: Support DHCPv6 client & revise mStoppedState to support. @{
+    private State mStoppedState;
+    // @}
     private final State mStoppingState = new StoppingState();
     private final State mStartedState = new StartedState();
-    private final State mRunningState = new RunningState();
+    // M: Support DHCPv6 client & revise mRunningState to support. @{
+    private State mRunningState;
+    // @}
 
     private final String mTag;
     private final Context mContext;
@@ -774,6 +780,44 @@ public class IpClient extends StateMachine {
                 mTag + ".EVENT_PROVISIONING_TIMEOUT", EVENT_PROVISIONING_TIMEOUT);
         mDhcpActionTimeoutAlarm = new WakeupMessage(mContext, getHandler(),
                 mTag + ".EVENT_DHCPACTION_TIMEOUT", EVENT_DHCPACTION_TIMEOUT);
+
+        /// M: Framework add on mechanism.
+        /// M: Support DHCPv6 client & revise mRunningState to support.
+        /// M: Support WI-Fi static configuration. @{
+        try {
+            dalvik.system.PathClassLoader pcLoader = new dalvik.system.PathClassLoader(
+                    "/system/framework/mediatek-framework-net.jar",
+                    mContext.getClassLoader());
+            Class mtkRunningClass = pcLoader.loadClass(
+                    "com.mediatek.net.ip.MtkIpRunningState");
+            java.lang.reflect.Constructor clazzConstructfunc = mtkRunningClass.getConstructor(
+                    new Class[] {Context.class, IpClient.class,
+                    String.class, NetlinkTracker.class, State.class});
+            clazzConstructfunc.setAccessible(true);
+            mRunningState = (State) clazzConstructfunc.newInstance(context,
+                    IpClient.this, ifName, mNetlinkTracker, new RunningState());
+        } catch (Throwable e) {
+            logError("No MtkIpRunningState! Used AOSP for instead! %s", e);
+            mRunningState = new RunningState();
+        }
+
+        try {
+            dalvik.system.PathClassLoader pcLoader = new dalvik.system.PathClassLoader(
+                    "/system/framework/mediatek-framework-net.jar",
+                    mContext.getClassLoader());
+            Class mtkStoppedClass = pcLoader.loadClass(
+                    "com.mediatek.net.ip.MtkIpStoppedState");
+            java.lang.reflect.Constructor clazzConstructfunc = mtkStoppedClass.getConstructor(
+                    new Class[] {Context.class, IpClient.class,
+                    String.class, State.class});
+            clazzConstructfunc.setAccessible(true);
+            mStoppedState = (State) clazzConstructfunc.newInstance(context,
+                    IpClient.this, ifName, new StoppedState());
+        }  catch (Throwable e) {
+            logError("No mtkStoppedClass! Used AOSP for instead! %s", e);
+            mStoppedState = new StoppedState();
+        }
+        /// @}
 
         // Anything the StateMachine may access must have been instantiated
         // before this point.

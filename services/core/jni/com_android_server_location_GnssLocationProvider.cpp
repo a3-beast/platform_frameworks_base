@@ -501,6 +501,14 @@ Return<void> GnssCallback::gnssSvStatusCb(const IGnssCallback::GnssSvStatus& svS
             static_cast<jint>(listSize), svidWithFlagArray, cn0Array, elevArray, azimArray,
             carrierFreqArray);
 
+    /// M: [Bug fix] MTK to fix memory leakage
+    env->DeleteLocalRef(svidWithFlagArray);
+    env->DeleteLocalRef(cn0Array);
+    env->DeleteLocalRef(elevArray);
+    env->DeleteLocalRef(azimArray);
+    env->DeleteLocalRef(carrierFreqArray);
+    /// M: add end
+
     checkAndClearExceptionFromCallback(env, __FUNCTION__);
     return Void();
 }
@@ -814,9 +822,11 @@ void GnssMeasurementCallback::translateGnssMeasurement_V1_0(
     SET(PseudorangeRateMetersPerSecond, measurement->pseudorangeRateMps);
     SET(PseudorangeRateUncertaintyMetersPerSecond,
         measurement->pseudorangeRateUncertaintyMps);
+    /// M: [Bug fix] Use ~ to get bitwise complement
     SET(AccumulatedDeltaRangeState,
         (static_cast<int32_t>(measurement->accumulatedDeltaRangeState) &
-        !ADR_STATE_HALF_CYCLE_REPORTED)); // Half Cycle state not reported from Hardware in V1_0
+        ~ADR_STATE_HALF_CYCLE_REPORTED)); // Half Cycle state not reported from Hardware in V1_0
+    /// M: mtk add end
     SET(AccumulatedDeltaRangeMeters, measurement->accumulatedDeltaRangeM);
     SET(AccumulatedDeltaRangeUncertaintyMeters,
         measurement->accumulatedDeltaRangeUncertaintyM);

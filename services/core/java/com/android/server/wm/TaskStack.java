@@ -46,6 +46,7 @@ import static com.android.server.wm.StackProto.ID;
 import static com.android.server.wm.StackProto.MINIMIZE_AMOUNT;
 import static com.android.server.wm.StackProto.TASKS;
 import static com.android.server.wm.StackProto.WINDOW_CONTAINER;
+import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_STACK;
 import static com.android.server.wm.WindowManagerDebugConfig.DEBUG_TASK_MOVEMENT;
 import static com.android.server.wm.WindowManagerDebugConfig.TAG_WM;
 
@@ -287,6 +288,12 @@ public class TaskStack extends WindowContainer<Task> implements
     }
 
     private int setBounds(Rect existing, Rect bounds) {
+        /// M: Add debug info.
+        if (DEBUG_STACK) {
+            Slog.d(TAG_WM, "setBounds bound = " + bounds
+                    + ", stackId = " + mStackId, new Throwable("setBounds"));
+        }
+
         int rotation = Surface.ROTATION_0;
         int density = DENSITY_DPI_UNDEFINED;
         if (mDisplayContent != null) {

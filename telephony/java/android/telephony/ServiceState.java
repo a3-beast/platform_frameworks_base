@@ -30,6 +30,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+// MTK-START: add-on
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+// MTK-END
+
 /**
  * Contains phone state and service related information.
  *
@@ -190,8 +195,12 @@ public class ServiceState implements Parcelable {
                     | (1 << (RIL_RADIO_TECHNOLOGY_EVDO_B - 1))
                     | (1 << (RIL_RADIO_TECHNOLOGY_EHRPD - 1));
 
-    private int mVoiceRegState = STATE_OUT_OF_SERVICE;
-    private int mDataRegState = STATE_OUT_OF_SERVICE;
+    // MTK-START: add-on
+    /** @hide */
+    protected int mVoiceRegState = STATE_OUT_OF_SERVICE;
+    /** @hide */
+    protected int mDataRegState = STATE_OUT_OF_SERVICE;
+    // MTK-END
 
     /**
      * Roaming type
@@ -223,41 +232,67 @@ public class ServiceState implements Parcelable {
      */
     public static final int UNKNOWN_ID = -1;
 
-    private int mVoiceRoamingType;
-    private int mDataRoamingType;
-    private String mVoiceOperatorAlphaLong;
-    private String mVoiceOperatorAlphaShort;
-    private String mVoiceOperatorNumeric;
-    private String mDataOperatorAlphaLong;
-    private String mDataOperatorAlphaShort;
-    private String mDataOperatorNumeric;
-    private boolean mIsManualNetworkSelection;
+    // MTK-START: add-on
+    /** @hide */
+    protected int mVoiceRoamingType;
+    /** @hide */
+    protected int mDataRoamingType;
+    /** @hide */
+    protected String mVoiceOperatorAlphaLong;
+    /** @hide */
+    protected String mVoiceOperatorAlphaShort;
+    /** @hide */
+    protected String mVoiceOperatorNumeric;
+    /** @hide */
+    protected String mDataOperatorAlphaLong;
+    /** @hide */
+    protected String mDataOperatorAlphaShort;
+    /** @hide */
+    protected String mDataOperatorNumeric;
+    /** @hide */
+    protected boolean mIsManualNetworkSelection;
 
-    private boolean mIsEmergencyOnly;
+    /** @hide */
+    protected boolean mIsEmergencyOnly;
 
-    private int mRilVoiceRadioTechnology;
-    private int mRilDataRadioTechnology;
+    /** @hide */
+    protected int mRilVoiceRadioTechnology;
+    /** @hide */
+    protected int mRilDataRadioTechnology;
 
-    private boolean mCssIndicator;
-    private int mNetworkId;
-    private int mSystemId;
-    private int mCdmaRoamingIndicator;
-    private int mCdmaDefaultRoamingIndicator;
-    private int mCdmaEriIconIndex;
-    private int mCdmaEriIconMode;
+    /** @hide */
+    protected boolean mCssIndicator;
+    /** @hide */
+    protected int mNetworkId;
+    /** @hide */
+    protected int mSystemId;
+    /** @hide */
+    protected int mCdmaRoamingIndicator;
+    /** @hide */
+    protected int mCdmaDefaultRoamingIndicator;
+    /** @hide */
+    protected int mCdmaEriIconIndex;
+    /** @hide */
+    protected int mCdmaEriIconMode;
 
-    private boolean mIsDataRoamingFromRegistration;
+    /** @hide */
+    protected boolean mIsDataRoamingFromRegistration;
 
-    private boolean mIsUsingCarrierAggregation;
+    /** @hide */
+    protected boolean mIsUsingCarrierAggregation;
 
-    private int mChannelNumber;
-    private int[] mCellBandwidths = new int[0];
+    /** @hide */
+    protected int mChannelNumber;
+    /** @hide */
+    protected int[] mCellBandwidths = new int[0];
 
     /* EARFCN stands for E-UTRA Absolute Radio Frequency Channel Number,
      * Reference: 3GPP TS 36.104 5.4.3 */
-    private int mLteEarfcnRsrpBoost = 0;
-
-    private List<NetworkRegistrationState> mNetworkRegistrationStates = new ArrayList<>();
+    /** @hide */
+    protected int mLteEarfcnRsrpBoost = 0;
+    /** @hide */
+    protected List<NetworkRegistrationState> mNetworkRegistrationStates = new ArrayList<>();
+    // MTK-END
 
     /**
      * get String description of roaming type
@@ -415,7 +450,9 @@ public class ServiceState implements Parcelable {
     public static final Parcelable.Creator<ServiceState> CREATOR =
             new Parcelable.Creator<ServiceState>() {
         public ServiceState createFromParcel(Parcel in) {
-            return new ServiceState(in);
+            // MTK-START: add-on
+            return makeServiceState(in);
+            // MTK-START: add-on
         }
 
         public ServiceState[] newArray(int size) {
@@ -919,7 +956,10 @@ public class ServiceState implements Parcelable {
             .append("}").toString();
     }
 
-    private void setNullState(int state) {
+    // MTK-START: add-on
+    /** @hide */
+    protected void setNullState(int state) {
+    // MTK-END
         if (DBG) Rlog.d(LOG_TAG, "[ServiceState] setNullState=" + state);
         mVoiceRegState = state;
         mDataRegState = state;
@@ -1101,8 +1141,11 @@ public class ServiceState implements Parcelable {
      * @param a first obj
      * @param b second obj
      * @return true if two objects equal or both are null
+    // MTK-START: add-on
+     * @hide
+    // MTK-END
      */
-    private static boolean equalsHandlesNulls (Object a, Object b) {
+    protected static boolean equalsHandlesNulls(Object a, Object b) {
         return (a == null) ? (b == null) : a.equals (b);
     }
 
@@ -1112,7 +1155,9 @@ public class ServiceState implements Parcelable {
      * @param m intent notifier map
      * @hide
      */
-    private void setFromNotifierBundle(Bundle m) {
+    // MTK-START: add-on
+    protected void setFromNotifierBundle(Bundle m) {
+    // MTK-END
         mVoiceRegState = m.getInt("voiceRegState");
         mDataRegState = m.getInt("dataRegState");
         mVoiceRoamingType = m.getInt("voiceRoamingType");
@@ -1600,5 +1645,36 @@ public class ServiceState implements Parcelable {
             mNetworkRegistrationStates.add(regState);
         }
     }
+
+    // MTK-START: Provide create service state function
+    private static ServiceState makeServiceState(Parcel in) {
+        ServiceState sInstance;
+        String className = "mediatek.telephony.MtkServiceState";
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(Parcel.class);
+            clazzConstructfunc.setAccessible(true);
+            sInstance = (ServiceState) clazzConstructfunc.newInstance(in);
+        // tk solution should not run into these exceptions
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "MtkServiceState InstantiationException! Used AOSP instead!");
+            sInstance = new ServiceState(in);
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "MtkServiceState InvocationTargetException! Used AOSP instead!");
+            sInstance = new ServiceState(in);
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+            Rlog.e(LOG_TAG, "MtkServiceState IllegalAccessException! Used AOSP instead!");
+            sInstance = new ServiceState(in);
+        } catch (Exception e) {
+            Rlog.e(LOG_TAG, "No MtkServiceState! Used AOSP instead!");
+            sInstance = new ServiceState(in);
+        }
+        return sInstance;
+    }
+    // MTK-END
 
 }

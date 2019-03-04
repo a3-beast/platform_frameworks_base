@@ -495,7 +495,7 @@
     <string name="fingerprint_acquired_partial" msgid="735082772341716043">"Hindi buo ang natukoy na fingerprint. Pakisubukang muli."</string>
     <string name="fingerprint_acquired_insufficient" msgid="4596546021310923214">"Hindi maproseso ang fingerprint. Pakisubukang muli."</string>
     <string name="fingerprint_acquired_imager_dirty" msgid="1087209702421076105">"Marumi ang sensor ng fingerprint. Pakilinis at subukang muli."</string>
-    <string name="fingerprint_acquired_too_fast" msgid="6470642383109155969">"Napakabilis ng paggalaw ng daliri. Pakisubukan ulit."</string>
+    <string name="fingerprint_acquired_too_fast" msgid="6470642383109155969">"Masyadong mabilis ang paggalaw ng daliri. Pakisubukang muli."</string>
     <string name="fingerprint_acquired_too_slow" msgid="59250885689661653">"Masyadong mabagal ang paggalaw ng daliri. Pakisubukang muli."</string>
   <string-array name="fingerprint_acquired_vendor">
   </string-array>
@@ -506,7 +506,7 @@
     <string name="fingerprint_error_timeout" msgid="3927186043737732875">"Nag-time out ang fingerprint. Subukang muli."</string>
     <string name="fingerprint_error_canceled" msgid="4402024612660774395">"Nakansela ang operasyong ginagamitan ng fingerprint."</string>
     <string name="fingerprint_error_user_canceled" msgid="7999639584615291494">"Kinansela ng user ang operasyon sa fingerprint."</string>
-    <string name="fingerprint_error_lockout" msgid="5536934748136933450">"Napakaraming pagtatangka. Subukan ulit sa ibang pagkakataon."</string>
+    <string name="fingerprint_error_lockout" msgid="5536934748136933450">"Masyadong maraming beses sumubok. Subukang muli sa ibang pagkakataon."</string>
     <string name="fingerprint_error_lockout_permanent" msgid="5033251797919508137">"Masyadong maraming beses sumubok. Na-disable ang sensor para sa fingerprint."</string>
     <string name="fingerprint_error_unable_to_process" msgid="6107816084103552441">"Subukang muli."</string>
     <string name="fingerprint_error_no_fingerprints" msgid="7654382120628334248">"Walang naka-enroll na fingerprint."</string>
@@ -1175,9 +1175,6 @@
     <skip />
     <string name="wifi_no_internet" msgid="8938267198124654938">"Walang access sa internet ang Wi-Fi"</string>
     <string name="wifi_no_internet_detailed" msgid="8083079241212301741">"I-tap para sa mga opsyon"</string>
-    <string name="wifi_softap_config_change" msgid="8475911871165857607">"Mga pagbabago sa mga setting ng iyong hotspot"</string>
-    <string name="wifi_softap_config_change_summary" msgid="7601233252456548891">"Nagbago ang band ng iyong hotspot."</string>
-    <string name="wifi_softap_config_change_detailed" msgid="8022936822860678033">"Hindi sinusuportahan ng device na ito ang kagustuhan mong gumamit lang ng 5GHz. Sa halip, gagamitin ng device na ito ang 5GHz na band kapag available."</string>
     <string name="network_switch_metered" msgid="4671730921726992671">"Lumipat sa <xliff:g id="NETWORK_TYPE">%1$s</xliff:g>"</string>
     <string name="network_switch_metered_detail" msgid="775163331794506615">"Ginagamit ng device ang <xliff:g id="NEW_NETWORK">%1$s</xliff:g> kapag walang access sa internet ang <xliff:g id="PREVIOUS_NETWORK">%2$s</xliff:g>. Maaaring may mga malapat na singilin."</string>
     <string name="network_switch_metered_toast" msgid="5779283181685974304">"Lumipat sa <xliff:g id="NEW_NETWORK">%2$s</xliff:g> mula sa <xliff:g id="PREVIOUS_NETWORK">%1$s</xliff:g>"</string>
@@ -1349,7 +1346,7 @@
     <string name="forward_intent_to_work" msgid="621480743856004612">"Ginagamit mo ang app na ito sa iyong profile sa trabaho"</string>
     <string name="input_method_binding_label" msgid="1283557179944992649">"Pamamaraan ng pag-input"</string>
     <string name="sync_binding_label" msgid="3687969138375092423">"I-sync"</string>
-    <string name="accessibility_binding_label" msgid="4148120742096474641">"Pagiging Accessible"</string>
+    <string name="accessibility_binding_label" msgid="4148120742096474641">"Kakayahang Ma-access"</string>
     <string name="wallpaper_binding_label" msgid="1240087844304687662">"Wallpaper"</string>
     <string name="chooser_wallpaper" msgid="7873476199295190279">"Baguhin ang wallpaper"</string>
     <string name="notification_listener_binding_label" msgid="2014162835481906429">"Notification listener"</string>

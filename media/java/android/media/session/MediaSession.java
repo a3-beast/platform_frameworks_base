@@ -30,6 +30,7 @@ import android.media.MediaMetadata;
 import android.media.Rating;
 import android.media.VolumeProvider;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -137,6 +138,8 @@ public final class MediaSession {
     private PlaybackState mPlaybackState;
 
     private boolean mActive = false;
+    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG)
+        || !"user".equals(Build.TYPE);
 
     /**
      * Creates a new session. The session will automatically be registered with
@@ -416,6 +419,9 @@ public final class MediaSession {
      */
     public void setPlaybackState(@Nullable PlaybackState state) {
         mPlaybackState = state;
+        if(DEBUG){
+            Log.d(TAG, "setPlaybackState");
+        }
         try {
             mBinder.setPlaybackState(state);
         } catch (RemoteException e) {
@@ -432,6 +438,9 @@ public final class MediaSession {
      * @see android.media.MediaMetadata.Builder#putBitmap
      */
     public void setMetadata(@Nullable MediaMetadata metadata) {
+        if(DEBUG){
+            Log.d(TAG, "setMetadata");
+        }
         if (metadata != null) {
             metadata = (new MediaMetadata.Builder(metadata, mMaxBitmapSize)).build();
         }

@@ -47,7 +47,8 @@ public:
 
     void clear();
 
-private:
+//M: private:
+protected:
     Program* generateProgram(const ProgramDescription& description, programid key);
     String8 generateVertexShader(const ProgramDescription& description);
     String8 generateFragmentShader(const ProgramDescription& description);

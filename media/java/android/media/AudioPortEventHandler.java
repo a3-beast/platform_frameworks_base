@@ -16,11 +16,13 @@
 
 package android.media;
 
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import java.util.ArrayList;
+import android.util.Log;
 import java.lang.ref.WeakReference;
 
 /**
@@ -36,6 +38,7 @@ class AudioPortEventHandler {
             new ArrayList<AudioManager.OnAudioPortUpdateListener>();
 
     private static final String TAG = "AudioPortEventHandler";
+    private static final boolean DEBUG = !"user".equals(Build.TYPE);
 
     private static final int AUDIOPORT_EVENT_PORT_LIST_UPDATED = 1;
     private static final int AUDIOPORT_EVENT_PATCH_LIST_UPDATED = 2;
@@ -109,7 +112,13 @@ class AudioPortEventHandler {
                                 listeners.get(i).onAudioPortListUpdate(portList);
                             }
                             if (msg.what == AUDIOPORT_EVENT_PORT_LIST_UPDATED) {
+                                if (DEBUG) {
+                                    Log.d(TAG, "AUDIOPORT_EVENT_PORT_LIST_UPDATED");
+                                }
                                 break;
+                            }
+                            if (DEBUG) {
+                                Log.d(TAG, "AUDIOPORT_EVENT_NEW_LISTENER");
                             }
                             // FALL THROUGH
 
@@ -123,6 +132,9 @@ class AudioPortEventHandler {
                         case AUDIOPORT_EVENT_SERVICE_DIED:
                             for (int i = 0; i < listeners.size(); i++) {
                                 listeners.get(i).onServiceDied();
+                            }
+                            if (DEBUG) {
+                                Log.d(TAG, "AUDIOPORT_EVENT_SERVICE_DIED");
                             }
                             break;
 

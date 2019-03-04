@@ -18,6 +18,7 @@ package com.android.server.display;
 
 import com.android.internal.util.DumpUtils;
 import com.android.internal.util.IndentingPrintWriter;
+import com.mediatek.server.display.MtkWifiDisplayController;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -74,11 +75,14 @@ final class WifiDisplayAdapter extends DisplayAdapter {
     private final PersistentDataStore mPersistentDataStore;
     private final boolean mSupportsProtectedBuffers;
 
-    private WifiDisplayController mDisplayController;
+    private MtkWifiDisplayController mDisplayController;
     private WifiDisplayDevice mDisplayDevice;
 
     private WifiDisplayStatus mCurrentStatus;
-    private int mFeatureState;
+
+    ///M: If intial value is UNAVAILABLE, cast screen menu will disappear
+    private int mFeatureState = WifiDisplayStatus.FEATURE_STATE_OFF;
+
     private int mScanState;
     private int mActiveDisplayState;
     private WifiDisplay mActiveDisplay;
@@ -135,7 +139,7 @@ final class WifiDisplayAdapter extends DisplayAdapter {
         getHandler().post(new Runnable() {
             @Override
             public void run() {
-                mDisplayController = new WifiDisplayController(
+                mDisplayController = new MtkWifiDisplayController(
                         getContext(), getHandler(), mWifiDisplayListener);
 
                 getContext().registerReceiverAsUser(mBroadcastReceiver, UserHandle.ALL,
@@ -375,6 +379,12 @@ final class WifiDisplayAdapter extends DisplayAdapter {
             }
         }
 
+        ///@M:{ Portrait WFD support
+        if (width < height) {
+            deviceFlags |= DisplayDeviceInfo.FLAG_ROTATES_WITH_CONTENT;
+        }
+        //} @M
+
         float refreshRate = 60.0f; // TODO: get this for real
 
         String name = display.getFriendlyDisplayName();
@@ -438,8 +448,8 @@ final class WifiDisplayAdapter extends DisplayAdapter {
         }
     };
 
-    private final WifiDisplayController.Listener mWifiDisplayListener =
-            new WifiDisplayController.Listener() {
+    private final MtkWifiDisplayController.Listener mWifiDisplayListener =
+            new MtkWifiDisplayController.Listener() {
         @Override
         public void onFeatureStateChanged(int featureState) {
             synchronized (getSyncRoot()) {

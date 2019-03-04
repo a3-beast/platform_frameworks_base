@@ -45,7 +45,7 @@ import java.util.Comparator;
  * which is the handle for an Activity that it uses to display windows. For nested windows, there is
  * a WindowToken created for the parent window to manage its children.
  */
-class WindowToken extends WindowContainer<WindowState> {
+public class WindowToken extends WindowContainer<WindowState> {
     private static final String TAG = TAG_WITH_CLASS_NAME ? "WindowToken" : TAG_WM;
 
     // The actual token.
@@ -269,6 +269,12 @@ class WindowToken extends WindowContainer<WindowState> {
     void onDisplayChanged(DisplayContent dc) {
         dc.reParentWindowToken(this);
         mDisplayContent = dc;
+
+        // The rounded corner overlay should not be rotated. We ensure that by moving it outside
+        // the windowing layer.
+        if (mRoundedCornerOverlay) {
+            mDisplayContent.reparentToOverlay(mPendingTransaction, mSurfaceControl);
+        }
 
         // TODO(b/36740756): One day this should perhaps be hooked
         // up with goodToGo, so we don't move a window

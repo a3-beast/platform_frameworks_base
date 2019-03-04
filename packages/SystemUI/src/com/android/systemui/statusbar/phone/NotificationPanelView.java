@@ -47,7 +47,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityManager;
-import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 
 import com.android.internal.logging.MetricsLogger;
@@ -108,20 +107,17 @@ public class NotificationPanelView extends PanelView implements
     private static final AnimationProperties CLOCK_ANIMATION_PROPERTIES = new AnimationProperties()
             .setDuration(StackStateAnimator.ANIMATION_DURATION_STANDARD);
     private static final FloatProperty<NotificationPanelView> SET_DARK_AMOUNT_PROPERTY =
-            new FloatProperty<NotificationPanelView>("mInterpolatedDarkAmount") {
-
+            new FloatProperty<NotificationPanelView>("mDarkAmount") {
                 @Override
                 public void setValue(NotificationPanelView object, float value) {
-                    object.setDarkAmount(value, object.mDarkInterpolator.getInterpolation(value));
+                    object.setDarkAmount(value);
                 }
 
                 @Override
                 public Float get(NotificationPanelView object) {
-                    return object.mLinearDarkAmount;
+                    return object.mDarkAmount;
                 }
             };
-
-    private Interpolator mDarkInterpolator;
     private final PowerManager mPowerManager;
     private final AccessibilityManager mAccessibilityManager;
 
@@ -225,7 +221,6 @@ public class NotificationPanelView extends PanelView implements
     private boolean mClosingWithAlphaFadeOut;
     private boolean mHeadsUpAnimatingAway;
     private boolean mLaunchingAffordance;
-    private boolean mAffordanceHasPreview;
     private FalsingManager mFalsingManager;
     private String mLastCameraLaunchSource = KeyguardBottomAreaView.CAMERA_LAUNCH_SOURCE_AFFORDANCE;
 
@@ -241,18 +236,7 @@ public class NotificationPanelView extends PanelView implements
     private int mIndicationBottomPadding;
     private int mAmbientIndicationBottomPadding;
     private boolean mIsFullWidth;
-
-    /**
-     * Current dark amount that follows regular interpolation curve of animation.
-     */
-    private float mInterpolatedDarkAmount;
-
-    /**
-     * Dark amount that animates from 0 to 1 or vice-versa in linear manner, even if the
-     * interpolation curve is different.
-     */
-    private float mLinearDarkAmount;
-
+    private float mDarkAmount;
     private float mDarkAmountTarget;
     private boolean mPulsing;
     private LockscreenGestureLogger mLockscreenGestureLogger = new LockscreenGestureLogger();
@@ -407,7 +391,7 @@ public class NotificationPanelView extends PanelView implements
                 false);
         addView(mKeyguardBottomArea, index);
         initBottomArea();
-        setDarkAmount(mLinearDarkAmount, mInterpolatedDarkAmount);
+        setDarkAmount(mDarkAmount);
 
         setKeyguardStatusViewVisibility(mStatusBarState, false, false);
         setKeyguardBottomAreaVisibility(mStatusBarState, false);
@@ -521,7 +505,7 @@ public class NotificationPanelView extends PanelView implements
                     getExpandedFraction(),
                     totalHeight,
                     mKeyguardStatusView.getHeight(),
-                    mInterpolatedDarkAmount,
+                    mDarkAmount,
                     mStatusBar.isKeyguardCurrentlySecure(),
                     mPulsing,
                     mBouncerTop);
@@ -1358,7 +1342,9 @@ public class NotificationPanelView extends PanelView implements
         mQsExpansionHeight = height;
         updateQsExpansion();
         requestScrollerTopPaddingUpdate(false /* animate */);
-        updateHeaderKeyguardAlpha();
+        if (mKeyguardShowing) {
+            updateHeaderKeyguardAlpha();
+        }
         if (mStatusBarState == StatusBarState.SHADE_LOCKED
                 || mStatusBarState == StatusBarState.KEYGUARD) {
             updateKeyguardBottomAreaAlpha();
@@ -1761,9 +1747,6 @@ public class NotificationPanelView extends PanelView implements
     }
 
     private void updateHeaderKeyguardAlpha() {
-        if (!mKeyguardShowing) {
-            return;
-        }
         float alphaQsExpansion = 1 - Math.min(1, getQsExpansionFraction() * 2);
         mKeyguardStatusBar.setAlpha(Math.min(getKeyguardContentsAlpha(), alphaQsExpansion)
                 * mKeyguardStatusBarAnimateAlpha);
@@ -1933,7 +1916,7 @@ public class NotificationPanelView extends PanelView implements
         if (view == null && mQsExpanded) {
             return;
         }
-        if (needsAnimation && mInterpolatedDarkAmount == 0) {
+        if (needsAnimation && mDarkAmount == 0) {
             mAnimateNextPositionUpdate = true;
         }
         ExpandableView firstChildNotGone = mNotificationStackScroller.getFirstChildNotGone();
@@ -2506,7 +2489,7 @@ public class NotificationPanelView extends PanelView implements
     }
 
     protected void setVerticalPanelTranslation(float translation) {
-        mNotificationStackScroller.setVerticalPanelTranslation(translation);
+        mNotificationStackScroller.setTranslationX(translation);
         mQsFrame.setTranslationX(translation);
         int size = mVerticalTranslationListener.size();
         for (int i = 0; i < size; i++) {
@@ -2532,8 +2515,7 @@ public class NotificationPanelView extends PanelView implements
     }
 
     private void updateStatusBarIcons() {
-        boolean showIconsWhenExpanded = (isPanelVisibleBecauseOfHeadsUp() || isFullWidth())
-                && getExpandedHeight() < getOpeningHeight();
+        boolean showIconsWhenExpanded = isFullWidth() && getExpandedHeight() < getOpeningHeight();
         if (showIconsWhenExpanded && mNoVisibleNotifications && isOnKeyguard()) {
             showIconsWhenExpanded = false;
         }
@@ -2587,7 +2569,6 @@ public class NotificationPanelView extends PanelView implements
         } else {
             animate = false;
         }
-        mAffordanceHasPreview = mKeyguardBottomArea.getRightPreview() != null;
         mAffordanceHelper.launchAffordance(animate, getLayoutDirection() == LAYOUT_DIRECTION_RTL);
     }
 
@@ -2630,13 +2611,6 @@ public class NotificationPanelView extends PanelView implements
         getLeftIcon().setLaunchingAffordance(launchingAffordance);
         getRightIcon().setLaunchingAffordance(launchingAffordance);
         getCenterIcon().setLaunchingAffordance(launchingAffordance);
-    }
-
-    /**
-     * Return true when a bottom affordance is launching an occluded activity with a splash screen.
-     */
-    public boolean isLaunchingAffordanceWithPreview() {
-        return mLaunchingAffordance && mAffordanceHasPreview;
     }
 
     /**
@@ -2744,40 +2718,31 @@ public class NotificationPanelView extends PanelView implements
         }
         mDarkAmountTarget = darkAmount;
         if (animate) {
-            if (mInterpolatedDarkAmount == 0f || mInterpolatedDarkAmount == 1f) {
-                mDarkInterpolator = dozing
-                        ? Interpolators.FAST_OUT_SLOW_IN
-                        : Interpolators.TOUCH_RESPONSE_REVERSE;
-            }
-            mNotificationStackScroller.notifyDarkAnimationStart(dozing);
             mDarkAnimator = ObjectAnimator.ofFloat(this, SET_DARK_AMOUNT_PROPERTY, darkAmount);
-            mDarkAnimator.setInterpolator(Interpolators.LINEAR);
-            mDarkAnimator.setDuration(mNotificationStackScroller.getDarkAnimationDuration(dozing));
+            mDarkAnimator.setInterpolator(Interpolators.LINEAR_OUT_SLOW_IN);
+            mDarkAnimator.setDuration(StackStateAnimator.ANIMATION_DURATION_WAKEUP);
             mDarkAnimator.start();
         } else {
-            setDarkAmount(darkAmount, darkAmount);
+            setDarkAmount(darkAmount);
         }
     }
 
-    private void setDarkAmount(float linearAmount, float amount) {
-        mInterpolatedDarkAmount = amount;
-        mLinearDarkAmount = linearAmount;
-        mKeyguardStatusView.setDarkAmount(mInterpolatedDarkAmount);
-        mKeyguardBottomArea.setDarkAmount(mInterpolatedDarkAmount);
+    private void setDarkAmount(float amount) {
+        mDarkAmount = amount;
+        mKeyguardStatusView.setDarkAmount(mDarkAmount);
+        mKeyguardBottomArea.setDarkAmount(mDarkAmount);
         positionClockAndNotifications();
-        mNotificationStackScroller.setDarkAmount(linearAmount, mInterpolatedDarkAmount);
     }
 
     public void setPulsing(boolean pulsing) {
         mPulsing = pulsing;
-        DozeParameters dozeParameters = DozeParameters.getInstance(mContext);
-        final boolean animatePulse = !dozeParameters.getDisplayNeedsBlanking()
-                && dozeParameters.getAlwaysOn();
-        if (animatePulse) {
+        final boolean canAnimatePulse =
+                !DozeParameters.getInstance(mContext).getDisplayNeedsBlanking();
+        if (canAnimatePulse) {
             mAnimateNextPositionUpdate = true;
         }
-        mNotificationStackScroller.setPulsing(pulsing, animatePulse);
-        mKeyguardStatusView.setPulsing(pulsing, animatePulse);
+        mNotificationStackScroller.setPulsing(pulsing, canAnimatePulse);
+        mKeyguardStatusView.setPulsing(pulsing, canAnimatePulse);
     }
 
     public void setAmbientIndicationBottomPadding(int ambientIndicationBottomPadding) {
@@ -2790,7 +2755,7 @@ public class NotificationPanelView extends PanelView implements
     public void dozeTimeTick() {
         mKeyguardStatusView.dozeTimeTick();
         mKeyguardBottomArea.dozeTimeTick();
-        if (mInterpolatedDarkAmount > 0) {
+        if (mDarkAmount > 0) {
             positionClockAndNotifications();
         }
     }

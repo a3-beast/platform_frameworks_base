@@ -18,6 +18,10 @@ package android.view;
 
 import android.annotation.LongDef;
 
+/// M: PerfFrameInfo Mechanism
+import com.mediatek.perfframe.PerfFrameInfoFactory;
+import com.mediatek.perfframe.PerfFrameInfoManager;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -38,7 +42,7 @@ import java.lang.annotation.RetentionPolicy;
  *
  * @hide
  */
-final class FrameInfo {
+public final class FrameInfo {
 
     long[] mFrameInfo = new long[9];
 
@@ -52,6 +56,10 @@ final class FrameInfo {
             FLAG_WINDOW_LAYOUT_CHANGED })
     @Retention(RetentionPolicy.SOURCE)
     public @interface FrameInfoFlags {}
+
+    /// M: PerfFrameInfo Mechanism
+    private static PerfFrameInfoManager mPerfFrameInfoManager =
+           PerfFrameInfoFactory.getInstance().makePerfFrameInfoManager();
 
     // The intended vsync time, unadjusted by jitter
     private static final int INTENDED_VSYNC = 1;
@@ -78,12 +86,17 @@ final class FrameInfo {
     // When View:draw() started
     private static final int DRAW_START = 8;
 
+
+    private long gl_aligned_start_time;
+
     public void setVsync(long intendedVsync, long usedVsync) {
         mFrameInfo[INTENDED_VSYNC] = intendedVsync;
         mFrameInfo[VSYNC] = usedVsync;
         mFrameInfo[OLDEST_INPUT_EVENT] = Long.MAX_VALUE;
         mFrameInfo[NEWEST_INPUT_EVENT] = 0;
         mFrameInfo[FLAGS] = 0;
+        /// M: PerfFrameInfo Mechanism
+        mPerfFrameInfoManager.clearDrawStartAndMarkIntendedVsync(intendedVsync);
     }
 
     public void updateInputEventTime(long inputEventTime, long inputEventOldestTime) {
@@ -109,6 +122,26 @@ final class FrameInfo {
 
     public void markDrawStart() {
         mFrameInfo[DRAW_START] = System.nanoTime();
+        /// M: PerfFrameInfo Mechanism
+        mPerfFrameInfoManager.setDrawStart(mFrameInfo[INTENDED_VSYNC]);
+    }
+
+    /// M: PerfFrameInfo Mechanism @{
+    public void markDoFrameEnd() {
+        mPerfFrameInfoManager.markDoFrameEnd((int)System.nanoTime() -
+                                                 (int)mFrameInfo[INTENDED_VSYNC],
+                                                 mFrameInfo[INTENDED_VSYNC]);
+    } /// @}
+
+    public void markGLDrawStart() {
+        gl_aligned_start_time = System.nanoTime();
+        /// M: PerfFrameInfo Mechanism
+        mPerfFrameInfoManager.markGLDrawStart();
+    }
+
+    public void markGLDrawEnd() {
+        /// M: PerfFrameInfo Mechanism
+        mPerfFrameInfoManager.markGLDrawEnd((int)System.nanoTime() - (int)gl_aligned_start_time);
     }
 
     public void addFlags(@FrameInfoFlags long flags) {

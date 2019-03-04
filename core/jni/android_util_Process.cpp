@@ -857,6 +857,17 @@ jintArray android_os_Process_getPids(JNIEnv* env, jobject clazz,
     return lastArray;
 }
 
+#ifndef MTK_BSP_PACKAGE
+/// M: get LRU anonymous memory size @{
+static jlong android_os_Process_getLruAnonMemory(JNIEnv* env, jobject clazz)
+{
+    static const char* const sums[] = { "Active(anon):", "Inactive(anon):", NULL };
+    static const size_t sumsLen[] = { strlen("Active(anon):"), strlen("Inactive(anon):"), 0 };
+    return getFreeMemoryImpl(sums, sumsLen, 2);
+}
+/// @}
+#endif // MTK_BSP_PACKAGE
+
 enum {
     PROC_TERM_MASK = 0xff,
     PROC_ZERO_TERM = 0,
@@ -1233,6 +1244,9 @@ static const JNINativeMethod methods[] = {
     {"getTotalMemory", "()J", (void*)android_os_Process_getTotalMemory},
     {"readProcLines", "(Ljava/lang/String;[Ljava/lang/String;[J)V", (void*)android_os_Process_readProcLines},
     {"getPids", "(Ljava/lang/String;[I)[I", (void*)android_os_Process_getPids},
+#ifndef MTK_BSP_PACKAGE
+    {"getLruAnonMemory", "()J", (void*)android_os_Process_getLruAnonMemory},
+#endif
     {"readProcFile", "(Ljava/lang/String;[I[Ljava/lang/String;[J[F)Z", (void*)android_os_Process_readProcFile},
     {"parseProcLine", "([BII[I[Ljava/lang/String;[J[F)Z", (void*)android_os_Process_parseProcLine},
     {"getElapsedCpuTime", "()J", (void*)android_os_Process_getElapsedCpuTime},

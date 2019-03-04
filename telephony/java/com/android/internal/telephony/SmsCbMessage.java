@@ -19,6 +19,10 @@ package android.telephony;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+/// M: Revise for telephony add on @{
+import java.lang.reflect.Constructor;
+/// @}
+
 /**
  * Parcelable object containing a received cell broadcast message. There are four different types
  * of Cell Broadcast messages:
@@ -177,7 +181,12 @@ public class SmsCbMessage implements Parcelable {
             case 'C':
                 // unparcel CMAS warning information
                 mEtwsWarningInfo = null;
+                /// M: Revise for telephony add on @{
+                /*
                 mCmasWarningInfo = new SmsCbCmasInfo(in);
+                */
+                mCmasWarningInfo = makeSmsCbCmasInfo(in);
+                /// @}
                 break;
 
             default:
@@ -379,4 +388,17 @@ public class SmsCbMessage implements Parcelable {
     public int describeContents() {
         return 0;
     }
+
+    /// M: Revise for telephony add on @{
+    private SmsCbCmasInfo makeSmsCbCmasInfo(Parcel in) {
+        try {
+            String className = "mediatek.telephony.MtkSmsCbCmasInfo";
+            Class<?> clazz = Class.forName(className);
+            Constructor clazzConstructfunc = clazz.getConstructor(Parcel.class);
+            return (SmsCbCmasInfo) clazzConstructfunc.newInstance(in);
+        } catch (Exception e) {
+            return new SmsCbCmasInfo(in);
+        }
+    }
+    /// @}
 }

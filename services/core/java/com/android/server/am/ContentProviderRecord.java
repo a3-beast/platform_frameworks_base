@@ -32,7 +32,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-final class ContentProviderRecord implements ComponentName.WithComponentName {
+public final class ContentProviderRecord implements ComponentName.WithComponentName {
     final ActivityManagerService service;
     public final ProviderInfo info;
     final int uid;
@@ -50,7 +50,7 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
     // Count for external process for which we have no handles.
     int externalProcessNoHandleCount;
     ProcessRecord proc; // if non-null, hosting process.
-    ProcessRecord launchingApp; // if non-null, waiting for this app to be launched.
+    public ProcessRecord launchingApp; // if non-null, waiting for this app to be launched.
     String stringName;
     String shortStringName;
 
@@ -62,8 +62,7 @@ final class ContentProviderRecord implements ComponentName.WithComponentName {
         appInfo = ai;
         name = _name;
         singleton = _singleton;
-        noReleaseNeeded = (uid == 0 || uid == Process.SYSTEM_UID)
-                && (_name == null || !"com.android.settings".equals(_name.getPackageName()));
+        noReleaseNeeded = uid == 0 || uid == Process.SYSTEM_UID;
     }
 
     public ContentProviderRecord(ContentProviderRecord cpr) {

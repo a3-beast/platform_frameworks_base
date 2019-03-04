@@ -369,7 +369,10 @@ public class TextureView extends View {
         }
     }
 
-    TextureLayer getTextureLayer() {
+    /**
+     * @hide
+     */
+    protected TextureLayer getTextureLayer() {
         if (mLayer == null) {
             if (mAttachInfo == null || mAttachInfo.mThreadedRenderer == null) {
                 return null;
@@ -377,13 +380,19 @@ public class TextureView extends View {
 
             mLayer = mAttachInfo.mThreadedRenderer.createTextureLayer();
             boolean createNewSurface = (mSurface == null);
+            Log.d(LOG_TAG, "getHardwareLayer, createNewSurface:" + createNewSurface);
             if (createNewSurface) {
                 // Create a new SurfaceTexture for the layer.
                 mSurface = new SurfaceTexture(false);
                 nCreateNativeWindow(mSurface);
+                // M:set buffer size when create @{
+                mSurface.setDefaultBufferSize(getWidth(), getHeight());
+                // @}
             }
             mLayer.setSurfaceTexture(mSurface);
-            mSurface.setDefaultBufferSize(getWidth(), getHeight());
+            // M: don't need set buffer size@{
+            // mSurface.setDefaultBufferSize(getWidth(), getHeight());
+            // @}
             mSurface.setOnFrameAvailableListener(mUpdateListener, mAttachInfo.mHandler);
 
             if (mListener != null && createNewSurface) {

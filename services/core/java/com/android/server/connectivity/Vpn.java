@@ -653,6 +653,7 @@ public class Vpn {
      * @return true if the operation succeeded.
      */
     public synchronized boolean prepare(String oldPackage, String newPackage) {
+        Log.i(TAG, "prepare old:" + oldPackage + ",new:" + newPackage);
         if (oldPackage != null) {
             // Stop an existing always-on VPN from being dethroned by other apps.
             if (mAlwaysOn && !isCurrentPreparedPackage(oldPackage)) {

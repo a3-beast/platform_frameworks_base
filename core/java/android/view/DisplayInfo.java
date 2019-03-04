@@ -711,4 +711,12 @@ public final class DisplayInfo implements Parcelable {
         }
         return result.toString();
     }
+
+    /// M: add for fullscreen switch feature @{
+    public FullscreenCropInfo fullscreenCropInfo = new FullscreenCropInfo();
+    public static class FullscreenCropInfo {
+        public int width = 0;
+        public int height = 0;
+    }
+    /// @}
 }

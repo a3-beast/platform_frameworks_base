@@ -20,7 +20,12 @@ package javax.obex;
 import java.io.IOException;
 import java.io.InputStream;
 
+import android.util.Log;
+
 public class ObexPacket {
+    private static final String TAG = "ObexPacket";
+    private static final boolean V = ObexHelper.VDBG;
+
     public int mHeaderId;
     public int mLength;
     public byte[] mPayload = null;
@@ -38,6 +43,7 @@ public class ObexPacket {
      */
     public static ObexPacket read(InputStream is) throws IOException {
         int headerId = is.read();
+        if(V) Log.d(TAG,"headerId = " + headerId);
         return read(headerId, is);
     }
 
@@ -52,6 +58,8 @@ public class ObexPacket {
         // Read the 2 byte length field from the stream
         int length = is.read();
         length = (length << 8) + is.read();
+
+        if(V) Log.d(TAG,"read packet length = " + length);
 
         ObexPacket newPacket = new ObexPacket(headerId, length);
 

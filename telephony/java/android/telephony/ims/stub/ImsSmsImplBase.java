@@ -129,7 +129,10 @@ public class ImsSmsImplBase {
      *
      * @hide
      */
-    public final void registerSmsListener(IImsSmsListener listener) {
+    // MTK-START
+    // Make the method can be extended
+    public void registerSmsListener(IImsSmsListener listener) {
+    // MTK-END
         synchronized (mLock) {
             mListener = listener;
         }

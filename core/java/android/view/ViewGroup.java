@@ -60,6 +60,7 @@ import android.view.animation.Transformation;
 import android.view.autofill.Helper;
 
 import com.android.internal.R;
+import com.mediatek.view.ViewDebugManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -797,7 +798,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
 
     @Override
     public void requestChildFocus(View child, View focused) {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " requestChildFocus()");
         }
         if (getDescendantFocusability() == FOCUS_BLOCK_DESCENDANTS) {
@@ -1120,7 +1121,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
 
     @Override
     public void clearChildFocus(View child) {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " clearChildFocus()");
         }
 
@@ -1132,7 +1133,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
 
     @Override
     public void clearFocus() {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " clearFocus()");
         }
         if (mFocused == null) {
@@ -1146,7 +1147,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
 
     @Override
     void unFocus(View focused) {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " unFocus()");
         }
         if (mFocused == null) {
@@ -1195,7 +1196,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
      */
     @Override
     public View findFocus() {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println("Find focus in " + this + ": flags="
                     + isFocused() + ", child=" + mFocused);
         }
@@ -1893,6 +1894,11 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
             }
         } else if (mFocused != null && (mFocused.mPrivateFlags & PFLAG_HAS_BOUNDS)
                 == PFLAG_HAS_BOUNDS) {
+            /// M : add log to help debugging
+            if (ViewDebugManager.DEBUG_KEY) {
+                    Log.d(TAG, "dispatchKeyEvent to focus child event = " + event + ", mFocused = "
+                    + mFocused + ",this = " + this);
+            }
             if (mFocused.dispatchKeyEvent(event)) {
                 return true;
             }
@@ -2550,6 +2556,11 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
             ev.setTargetAccessibilityFocus(false);
         }
 
+        if (ViewDebugManager.DEBUG_MOTION) {
+            Log.d(TAG, "(ViewGroup)dispatchTouchEvent 1: ev = " + ev + ",mFirstTouchTarget = "
+                    + mFirstTouchTarget + ",this = " + this);
+        }
+
         boolean handled = false;
         if (onFilterTouchEventForSecurity(ev)) {
             final int action = ev.getAction();
@@ -2571,6 +2582,11 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                 final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
                 if (!disallowIntercept) {
                     intercepted = onInterceptTouchEvent(ev);
+                    /// M : add log to help debugging
+                    if (intercepted == true && ViewDebugManager.DEBUG_TOUCH) {
+                        Log.d(TAG, "Touch event was intercepted event = " + ev
+                                + ",this = " + this);
+                    }
                     ev.setAction(action); // restore action in case it was changed
                 } else {
                     intercepted = false;
@@ -2651,6 +2667,12 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                             }
 
                             newTouchTarget = getTouchTarget(child);
+                            if (ViewDebugManager.DEBUG_MOTION) {
+                                Log.d(TAG, "(ViewGroup)dispatchTouchEvent to child 3: child = "
+                                        + child + ",childrenCount = " + childrenCount + ",i = " + i
+                                        + ",newTouchTarget = " + newTouchTarget
+                                        + ",idBitsToAssign = " + idBitsToAssign);
+                            }
                             if (newTouchTarget != null) {
                                 // Child is already receiving touch within its bounds.
                                 // Give it the new pointer in addition to the ones it is handling.
@@ -2719,6 +2741,12 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                         if (dispatchTransformedTouchEvent(ev, cancelChild,
                                 target.child, target.pointerIdBits)) {
                             handled = true;
+                        }
+                        if (ViewDebugManager.DEBUG_MOTION) {
+                            Log.d(TAG, "dispatchTouchEvent middle 5: cancelChild = " + cancelChild
+                                    + ",mFirstTouchTarget = " + mFirstTouchTarget + ",target = "
+                                    + target + ",predecessor = " + predecessor + ",next = " + next
+                                    + ",this = " + this);
                         }
                         if (cancelChild) {
                             if (predecessor == null) {
@@ -2827,6 +2855,9 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                 target.recycle();
                 target = next;
             } while (target != null);
+            if (ViewDebugManager.DEBUG_MOTION) {
+                Log.d(TAG, "clearTouchTargets, mFirstTouchTarget set to null, this = " + this);
+            }
             mFirstTouchTarget = null;
         }
     }
@@ -2876,6 +2907,12 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
      */
     private TouchTarget addTouchTarget(@NonNull View child, int pointerIdBits) {
         final TouchTarget target = TouchTarget.obtain(child, pointerIdBits);
+        if (ViewDebugManager.DEBUG_MOTION) {
+            Log.d(TAG, "addTouchTarget:child = " + child + ",pointerIdBits = " + pointerIdBits
+                    + ",target = " + target + ",mFirstTouchTarget = " + mFirstTouchTarget
+                    + ",this = " + this);
+        }
+
         target.next = mFirstTouchTarget;
         mFirstTouchTarget = target;
         return target;
@@ -2893,6 +2930,10 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                 target.pointerIdBits &= ~pointerIdBits;
                 if (target.pointerIdBits == 0) {
                     if (predecessor == null) {
+                        if (ViewDebugManager.DEBUG_MOTION) {
+                            Log.d(TAG, "removePointersFromTouchTargets, mFirstTouchTarget = "
+                                    + mFirstTouchTarget + ", next = " + next + ",this = " + this);
+                        }
                         mFirstTouchTarget = next;
                     } else {
                         predecessor.next = next;
@@ -2914,6 +2955,10 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
             final TouchTarget next = target.next;
             if (target.child == view) {
                 if (predecessor == null) {
+                    if (ViewDebugManager.DEBUG_MOTION) {
+                        Log.d(TAG, "cancelTouchTarget, mFirstTouchTarget = " + mFirstTouchTarget
+                                + ", next = " + next + ",this = " + this);
+                    }
                     mFirstTouchTarget = next;
                 } else {
                     predecessor.next = next;
@@ -2992,6 +3037,13 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         // Canceling motions is a special case.  We don't need to perform any transformations
         // or filtering.  The important part is the action, not the contents.
         final int oldAction = event.getAction();
+        if (ViewDebugManager.DEBUG_MOTION) {
+            Log.d(TAG, "dispatchTransformedTouchEvent 1: event = " + event + ",cancel = "
+                    + cancel + ",oldAction = " + oldAction + ",desiredPointerIdBits = "
+                    + desiredPointerIdBits + ",mFirstTouchTarget = " + mFirstTouchTarget
+                    + ",child = " + child + ",this = " + this);
+        }
+
         if (cancel || oldAction == MotionEvent.ACTION_CANCEL) {
             event.setAction(MotionEvent.ACTION_CANCEL);
             if (child == null) {
@@ -3010,6 +3062,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         // If for some reason we ended up in an inconsistent state where it looks like we
         // might produce a motion event with no pointers in it, then drop the event.
         if (newPointerIdBits == 0) {
+            Log.i(TAG, "Dispatch transformed touch event without pointers in " + this);
             return false;
         }
 
@@ -3050,6 +3103,13 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
             }
 
             handled = child.dispatchTouchEvent(transformedEvent);
+        }
+
+        if (ViewDebugManager.DEBUG_MOTION) {
+            Log.d(TAG, "dispatchTransformedTouchEvent 3 to child " + child + ",handled = "
+                    + handled + ",mScrollX = " + mScrollX + ",mScrollY = " + mScrollY
+                    + ",mFirstTouchTarget = " + mFirstTouchTarget + ",transformedEvent = "
+                    + transformedEvent + ",this = " + this);
         }
 
         // Done.
@@ -3215,7 +3275,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
      */
     @Override
     public boolean requestFocus(int direction, Rect previouslyFocusedRect) {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " ViewGroup.requestFocus direction="
                     + direction);
         }
@@ -3823,7 +3883,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         final View[] children = mChildren;
         for (int i = 0; i < count; i++) {
             View c = children[i];
-            if ((c.mViewFlags & PARENT_SAVE_DISABLED_MASK) != PARENT_SAVE_DISABLED) {
+            if (c != null && (c.mViewFlags & PARENT_SAVE_DISABLED_MASK) != PARENT_SAVE_DISABLED) {
                 c.dispatchRestoreInstanceState(container);
             }
         }
@@ -4849,7 +4909,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
      * @param params the layout parameters to set on the child
      */
     public void addView(View child, int index, LayoutParams params) {
-        if (DBG) {
+        if (DBG || ViewDebugManager.DBG) {
             System.out.println(this + " addView");
         }
 
@@ -4914,6 +4974,10 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
     }
 
     void dispatchViewAdded(View child) {
+        if (ViewDebugManager.DEBUG_LIFECYCLE) {
+            Log.e(TAG, "dispatchViewAdded view to parent " + this
+                    + " view == " + child, new Throwable());
+        }
         onViewAdded(child);
         if (mOnHierarchyChangeListener != null) {
             mOnHierarchyChangeListener.onChildViewAdded(this, child);
@@ -4930,6 +4994,8 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
     }
 
     void dispatchViewRemoved(View child) {
+        ViewDebugManager.getInstance().debugViewRemoved(child, this,
+                 getViewRootImpl() != null ? getViewRootImpl().mThread : null);
         onViewRemoved(child);
         if (mOnHierarchyChangeListener != null) {
             mOnHierarchyChangeListener.onChildViewRemoved(this, child);
@@ -6075,6 +6141,10 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                         descendant.mScrollY - descendant.mTop);
             }
         } else {
+            /// M: add log help to find the owner
+            Log.e(TAG, "parameter must be a descendant of this view, this = " + this
+                    + " descendant = " + descendant + " theParent = " + theParent);
+            this.debug();
             throw new IllegalArgumentException("parameter must be a descendant of this view");
         }
     }
@@ -6716,7 +6786,9 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
                 mPaddingLeft + mPaddingRight, lp.width);
         final int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
                 mPaddingTop + mPaddingBottom, lp.height);
-
+        if (ViewDebugManager.DEBUG_LAYOUT) {
+            ViewDebugManager.getInstance().debugViewGroupChildMeasure(child, this, lp, -1, -1);
+        }
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
     }
 
@@ -6745,7 +6817,10 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         final int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
                 mPaddingTop + mPaddingBottom + lp.topMargin + lp.bottomMargin
                         + heightUsed, lp.height);
-
+        if (ViewDebugManager.DEBUG_LAYOUT) {
+            ViewDebugManager.getInstance().debugViewGroupChildMeasure(child,
+                this, lp, widthUsed, heightUsed);
+        }
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
     }
 
@@ -8075,7 +8150,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         /**
          * Sets the margins, in pixels. A call to {@link android.view.View#requestLayout()} needs
          * to be done so that the new margins are taken into account. Left and right margins may be
-         * overridden by {@link android.view.View#requestLayout()} depending on layout direction.
+         * overriden by {@link android.view.View#requestLayout()} depending on layout direction.
          * Margin values should be positive.
          *
          * @param left the left margin size
@@ -8105,8 +8180,8 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
         /**
          * Sets the relative margins, in pixels. A call to {@link android.view.View#requestLayout()}
          * needs to be done so that the new relative margins are taken into account. Left and right
-         * margins may be overridden by {@link android.view.View#requestLayout()} depending on
-         * layout direction. Margin values should be positive.
+         * margins may be overriden by {@link android.view.View#requestLayout()} depending on layout
+         * direction. Margin values should be positive.
          *
          * @param start the start margin size
          * @param top the top margin size

@@ -67,8 +67,8 @@ import java.util.Map;
  */
 public class NetworkStatsRecorder {
     private static final String TAG = "NetworkStatsRecorder";
-    private static final boolean LOGD = false;
-    private static final boolean LOGV = false;
+    private static final boolean LOGD = true;
+    private static final boolean LOGV = true;
 
     private static final String TAG_NETSTATS_DUMP = "netstats_dump";
 
@@ -192,7 +192,7 @@ public class NetworkStatsRecorder {
             mRotator.readMatching(res, start, end);
             res.recordCollection(mPending);
         } catch (IOException e) {
-            Log.wtf(TAG, "problem completely reading network stats", e);
+            Log.e(TAG, "problem completely reading network stats", e);
             recoverFromWtf();
         } catch (OutOfMemoryError e) {
             Log.wtf(TAG, "problem completely reading network stats", e);
@@ -264,11 +264,18 @@ public class NetworkStatsRecorder {
             // skip when no delta occurred
             if (entry.isEmpty()) continue;
 
+            //M: to prevent exception in recordData
+            if (entry.isNegative()) {
+                Slog.e(TAG, "tried recording negative data:" + entry);
+                continue;
+            }
+
             // only record tag data when requested
             if ((entry.tag == TAG_NONE) != mOnlyTags) {
                 if (mPending != null) {
                     mPending.recordData(ident, entry.uid, entry.set, entry.tag, start, end, entry);
                 }
+                Slog.i(TAG, "recordSnapshotLocked: ident[" + ident + "]");
 
                 // also record against boot stats when present
                 if (mSinceBoot != null) {
@@ -315,7 +322,7 @@ public class NetworkStatsRecorder {
                 mRotator.maybeRotate(currentTimeMillis);
                 mPending.reset();
             } catch (IOException e) {
-                Log.wtf(TAG, "problem persisting pending stats", e);
+                Log.e(TAG, "problem persisting pending stats", e);
                 recoverFromWtf();
             } catch (OutOfMemoryError e) {
                 Log.wtf(TAG, "problem persisting pending stats", e);
@@ -334,7 +341,7 @@ public class NetworkStatsRecorder {
                 // Rewrite all persisted data to migrate UID stats
                 mRotator.rewriteAll(new RemoveUidRewriter(mBucketDuration, uids));
             } catch (IOException e) {
-                Log.wtf(TAG, "problem removing UIDs " + Arrays.toString(uids), e);
+                Log.e(TAG, "problem removing UIDs " + Arrays.toString(uids), e);
                 recoverFromWtf();
             } catch (OutOfMemoryError e) {
                 Log.wtf(TAG, "problem removing UIDs " + Arrays.toString(uids), e);

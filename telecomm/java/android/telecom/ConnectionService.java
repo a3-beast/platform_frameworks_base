@@ -71,7 +71,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * See {@link PhoneAccount} and {@link TelecomManager#registerPhoneAccount} for more information.
  * <p>
  * System managed {@link ConnectionService}s must be enabled by the user in the phone app settings
- * before Telecom will bind to them.  Self-managed {@link ConnectionService}s must be granted the
+ * before Telecom will bind to them.  Self-manged {@link ConnectionService}s must be granted the
  * appropriate permission before Telecom will bind to them.
  * <p>
  * Once registered and enabled by the user in the phone app settings or granted permission, telecom
@@ -186,21 +186,29 @@ public abstract class ConnectionService extends Service {
 
     private static Connection sNullConnection;
 
-    private final Map<String, Connection> mConnectionById = new ConcurrentHashMap<>();
-    private final Map<Connection, String> mIdByConnection = new ConcurrentHashMap<>();
-    private final Map<String, Conference> mConferenceById = new ConcurrentHashMap<>();
-    private final Map<Conference, String> mIdByConference = new ConcurrentHashMap<>();
+    /** {@hide} */
+    protected final Map<String, Connection> mConnectionById = new ConcurrentHashMap<>();
+    /** {@hide} */
+    protected final Map<Connection, String> mIdByConnection = new ConcurrentHashMap<>();
+    /** {@hide} */
+    protected final Map<String, Conference> mConferenceById = new ConcurrentHashMap<>();
+    /** {@hide} */
+    protected final Map<Conference, String> mIdByConference = new ConcurrentHashMap<>();
     private final RemoteConnectionManager mRemoteConnectionManager =
             new RemoteConnectionManager(this);
-    private final List<Runnable> mPreInitializationConnectionRequests = new ArrayList<>();
-    private final ConnectionServiceAdapter mAdapter = new ConnectionServiceAdapter();
+    /** {@hide} */
+    protected final List<Runnable> mPreInitializationConnectionRequests = new ArrayList<>();
+    /** {@hide} */
+    protected final ConnectionServiceAdapter mAdapter = new ConnectionServiceAdapter();
 
-    private boolean mAreAccountsInitialized = false;
+    /** {@hide} */
+    protected boolean mAreAccountsInitialized = false;
     private Conference sNullConference;
     private Object mIdSyncRoot = new Object();
     private int mId = 0;
 
-    private final IBinder mBinder = new IConnectionService.Stub() {
+    /** @hide */
+    protected IBinder mBinder = new IConnectionService.Stub() {
         @Override
         public void addConnectionServiceAdapter(IConnectionServiceAdapter adapter,
                 Session.Info sessionInfo) {
@@ -1152,7 +1160,11 @@ public abstract class ConnectionService extends Service {
         }
     };
 
-    private final Conference.Listener mConferenceListener = new Conference.Listener() {
+    /**
+     * Conference listener; used to receive notification when a conference has been updated.
+     * {@hide}
+     */
+    protected final Conference.Listener mConferenceListener = new Conference.Listener() {
         @Override
         public void onStateChanged(Conference conference, int oldState, int newState) {
             String id = mIdByConference.get(conference);
@@ -1256,7 +1268,8 @@ public abstract class ConnectionService extends Service {
         }
     };
 
-    private final Connection.Listener mConnectionListener = new Connection.Listener() {
+    /** {@hide} */
+    protected final Connection.Listener mConnectionListener = new Connection.Listener() {
         @Override
         public void onStateChanged(Connection c, int state) {
             String id = mIdByConnection.get(c);
@@ -1479,6 +1492,11 @@ public abstract class ConnectionService extends Service {
     /** {@inheritDoc} */
     @Override
     public final IBinder onBind(Intent intent) {
+        return getConnectionServiceBinder();
+    }
+
+    /** @hide */
+    protected IBinder getConnectionServiceBinder() {
         return mBinder;
     }
 
@@ -1494,7 +1512,8 @@ public abstract class ConnectionService extends Service {
      * incoming call. In either case, telecom will cycle through a set of services and call
      * createConnection util a connection service cancels the process or completes it successfully.
      */
-    private void createConnection(
+    /** {@hide} */
+    protected void createConnection(
             final PhoneAccountHandle callManagerAccount,
             final String callId,
             final ConnectionRequest request,
@@ -2463,7 +2482,8 @@ public abstract class ConnectionService extends Service {
         return id;
     }
 
-    private void addConnection(PhoneAccountHandle handle, String callId, Connection connection) {
+    /** {@hide} */
+    protected void addConnection(PhoneAccountHandle handle, String callId, Connection connection) {
         connection.setTelecomCallId(callId);
         mConnectionById.put(callId, connection);
         mIdByConnection.put(connection, callId);
@@ -2524,7 +2544,8 @@ public abstract class ConnectionService extends Service {
         }
     }
 
-    private Connection findConnectionForAction(String callId, String action) {
+    /** {@hide} */
+    protected Connection findConnectionForAction(String callId, String action) {
         if (callId != null && mConnectionById.containsKey(callId)) {
             return mConnectionById.get(callId);
         }
@@ -2539,7 +2560,8 @@ public abstract class ConnectionService extends Service {
         return sNullConnection;
     }
 
-    private Conference findConferenceForAction(String conferenceId, String action) {
+    /** {@hide} */
+    protected Conference findConferenceForAction(String conferenceId, String action) {
         if (mConferenceById.containsKey(conferenceId)) {
             return mConferenceById.get(conferenceId);
         }
@@ -2565,7 +2587,8 @@ public abstract class ConnectionService extends Service {
      * @param conferenceables The {@link Conferenceable} connections and conferences.
      * @return List of string conference and call Ids.
      */
-    private List<String> createIdList(List<Conferenceable> conferenceables) {
+    /** {@hide} */
+    protected List<String> createIdList(List<Conferenceable> conferenceables) {
         List<String> ids = new ArrayList<>();
         for (Conferenceable c : conferenceables) {
             // Only allow Connection and Conference conferenceables.
@@ -2585,7 +2608,8 @@ public abstract class ConnectionService extends Service {
         return ids;
     }
 
-    private Conference getNullConference() {
+    /** {@hide} */
+    protected Conference getNullConference() {
         if (sNullConference == null) {
             sNullConference = new Conference(null) {};
         }

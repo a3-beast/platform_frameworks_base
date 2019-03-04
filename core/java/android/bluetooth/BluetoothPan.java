@@ -143,6 +143,10 @@ public final class BluetoothPan implements BluetoothProfile {
     }
 
     boolean doBind() {
+        if (mContext == null) {
+            Log.w(TAG, "Context is null");
+            return false;
+        }
         Intent intent = new Intent(IBluetoothPan.class.getName());
         ComponentName comp = intent.resolveSystemService(mContext.getPackageManager(), 0);
         intent.setComponent(comp);
@@ -170,13 +174,18 @@ public final class BluetoothPan implements BluetoothProfile {
             if (mPanService != null) {
                 try {
                     mPanService = null;
-                    mContext.unbindService(mConnection);
+                    if (mContext != null) {
+                        mContext.unbindService(mConnection);
+                    } else {
+                        Log.w(TAG, "mContext is null");
+                    }
                 } catch (Exception re) {
                     Log.e(TAG, "", re);
                 }
             }
+            mContext = null;
+            mServiceListener = null;
         }
-        mServiceListener = null;
     }
 
     protected void finalize() {
@@ -191,26 +200,32 @@ public final class BluetoothPan implements BluetoothProfile {
                     // Handle enable request to bind again.
                     Log.d(TAG, "onBluetoothStateChange on: " + on);
                     if (on) {
-                        try {
-                            if (mPanService == null) {
-                                if (VDBG) Log.d(TAG, "onBluetoothStateChange calling doBind()");
-                                doBind();
+                        synchronized (mConnection) {
+                            try {
+                                if (mPanService == null && mContext != null) {
+                                    if (VDBG) Log.d(TAG, "onBluetoothStateChange calling doBind()");
+                                    doBind();
+                                }
+
+                            } catch (IllegalStateException e) {
+                                Log.e(TAG, "onBluetoothStateChange: could not bind to PAN service:",
+                                        e);
+
+                            } catch (SecurityException e) {
+                                Log.e(TAG, "onBluetoothStateChange: could not bind to PAN service:",
+                                        e);
                             }
-
-                        } catch (IllegalStateException e) {
-                            Log.e(TAG, "onBluetoothStateChange: could not bind to PAN service: ",
-                                    e);
-
-                        } catch (SecurityException e) {
-                            Log.e(TAG, "onBluetoothStateChange: could not bind to PAN service: ",
-                                    e);
                         }
                     } else {
                         if (VDBG) Log.d(TAG, "Unbinding service...");
                         synchronized (mConnection) {
                             try {
                                 mPanService = null;
-                                mContext.unbindService(mConnection);
+                                if (mContext != null) {
+                                    mContext.unbindService(mConnection);
+                                } else {
+                                    Log.w(TAG, "onBluetoothStateChange nContext is null");
+                                }
                             } catch (Exception re) {
                                 Log.e(TAG, "", re);
                             }

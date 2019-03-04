@@ -37,7 +37,6 @@ import android.view.DisplayInfo;
 import android.view.Surface;
 import android.view.Surface.OutOfResourcesException;
 import android.view.SurfaceControl;
-import android.view.SurfaceControl.Transaction;
 import android.view.SurfaceSession;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -261,6 +260,9 @@ class ScreenRotationAnimation {
         mOriginalWidth = originalWidth;
         mOriginalHeight = originalHeight;
 
+        /// M: MTK Power: Enable rotation boost
+        mDisplayContent.mService.mPowerHalManager.setRotationBoost(true);
+
         final SurfaceControl.Transaction t = new SurfaceControl.Transaction();
         try {
             mSurfaceControl = displayContent.makeOverlay()
@@ -268,12 +270,6 @@ class ScreenRotationAnimation {
                     .setSize(mWidth, mHeight)
                     .setSecure(isSecure)
                     .build();
-
-            // In case display bounds change, screenshot buffer and surface may mismatch so set a
-            // scaling mode.
-            Transaction t2 = new Transaction();
-            t2.setOverrideScalingMode(mSurfaceControl, Surface.SCALING_MODE_SCALE_TO_WINDOW);
-            t2.apply(true /* sync */);
 
             // capture a screenshot into the surface we just created
             // TODO(multidisplay): we should use the proper display
@@ -691,6 +687,8 @@ class ScreenRotationAnimation {
             mRotateEnterAnimation.cancel();
             mRotateEnterAnimation = null;
         }
+        /// M: MTK Power: Disable rotation boost
+        mDisplayContent.mService.mPowerHalManager.setRotationBoost(false);
     }
 
     public boolean isAnimating() {

@@ -20,6 +20,7 @@ import android.annotation.CallSuper;
 import android.annotation.Nullable;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
@@ -46,6 +47,8 @@ import android.webkit.MimeTypeMap;
 
 import com.android.internal.annotations.GuardedBy;
 
+import com.mediatek.internal.content.FileSystemProviderExt;
+
 import libcore.io.IoUtils;
 
 import java.io.File;
@@ -57,6 +60,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+
 /**
  * A helper class for {@link android.provider.DocumentsProvider} to perform file operations on local
  * files.
@@ -64,7 +68,7 @@ import java.util.Set;
 public abstract class FileSystemProvider extends DocumentsProvider {
 
     private static final String TAG = "FileSystemProvider";
-
+    private static final boolean DEBUG = false;
     private static final boolean LOG_INOTIFY = false;
 
     private String[] mDefaultProjection;
@@ -85,6 +89,10 @@ public abstract class FileSystemProvider extends DocumentsProvider {
 
     protected abstract Uri buildNotificationUri(String docId);
 
+    /// M: for DRMv1.0 support in internal storage @{
+    private static FileSystemProviderExt sFileSystemProviderExt;
+    /// @}
+
     /**
      * Callback indicating that the given document has been modified. This gives
      * the provider a hook to invalidate cached data, such as {@code sdcardfs}.
@@ -102,7 +110,12 @@ public abstract class FileSystemProvider extends DocumentsProvider {
     @CallSuper
     protected void onCreate(String[] defaultProjection) {
         mHandler = new Handler();
-        mDefaultProjection = defaultProjection;
+
+        /// M: for DRMv1.0 support in internal storage @{
+        Context context = getContext();
+        sFileSystemProviderExt = sFileSystemProviderExt.getInstance(context);
+        mDefaultProjection = sFileSystemProviderExt.resolveProjection(defaultProjection);
+        /// @}
     }
 
     @Override
@@ -237,6 +250,8 @@ public abstract class FileSystemProvider extends DocumentsProvider {
 
         final File before = getFileForDocId(docId);
         final File after = FileUtils.buildUniqueFile(before.getParentFile(), displayName);
+        final File beforeVisibleFile = getFileForDocId(docId, true);
+
         if (!before.renameTo(after)) {
             throw new IllegalStateException("Failed to rename to " + after);
         }
@@ -245,7 +260,6 @@ public abstract class FileSystemProvider extends DocumentsProvider {
         onDocIdChanged(docId);
         onDocIdChanged(afterDocId);
 
-        final File beforeVisibleFile = getFileForDocId(docId, true);
         final File afterVisibleFile = getFileForDocId(afterDocId, true);
         moveInMediaStore(beforeVisibleFile, afterVisibleFile);
 
@@ -461,12 +475,18 @@ public abstract class FileSystemProvider extends DocumentsProvider {
 
     protected RowBuilder includeFile(MatrixCursor result, String docId, File file)
             throws FileNotFoundException {
+        File visibleFile = null;
         if (docId == null) {
             docId = getDocIdForFile(file);
+            if (DEBUG) {
+                Log.d(TAG, "includeFile docId: " + docId);
+            }
         } else {
             file = getFileForDocId(docId);
         }
-
+        if (file != null && !file.isDirectory()) {
+            visibleFile = getFileForDocId(docId, true);
+        }
         int flags = 0;
 
         if (file.canWrite()) {
@@ -506,6 +526,12 @@ public abstract class FileSystemProvider extends DocumentsProvider {
             row.add(Document.COLUMN_LAST_MODIFIED, lastModified);
         }
 
+        /// M: for DRMv1.0 support in internal storage @{
+        if (sFileSystemProviderExt != null) {
+                sFileSystemProviderExt.addSupportDRMMethod(file, row, docId, mimeType, visibleFile);
+        }
+        /// @}
+
         // Return the row builder just in case any subclass want to add more stuff to it.
         return row;
     }
@@ -514,7 +540,7 @@ public abstract class FileSystemProvider extends DocumentsProvider {
         if (file.isDirectory()) {
             return Document.MIME_TYPE_DIR;
         } else {
-            return getTypeForName(file.getName());
+            return getTypeForName(file);
         }
     }
 
@@ -522,7 +548,15 @@ public abstract class FileSystemProvider extends DocumentsProvider {
         return MetadataReader.isSupportedMimeType(mimeType);
     }
 
-    private static String getTypeForName(String name) {
+    private static String getTypeForName(File file) {
+
+        /// M: for DRMv1.0 support in internal storage @{
+         String name = file.getName();
+        if (sFileSystemProviderExt != null) {
+            return (String) sFileSystemProviderExt.getTypeForNameMethod(file);
+        }
+        /// @}
+
         final int lastDot = name.lastIndexOf('.');
         if (lastDot >= 0) {
             final String extension = name.substring(lastDot + 1).toLowerCase();

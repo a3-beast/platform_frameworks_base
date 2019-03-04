@@ -84,6 +84,9 @@ cc_library_shared {
         "-Wunused",
         "-Wunreachable-code",
     ],
+    defaults: [
+        "mtk_libmedia_jni_defaults",
+    ],
 }
 
 cc_library_shared {
@@ -177,3 +180,20 @@ subdirs = [
     "audioeffect",
     "soundpool",
 ]
+
+bootstrap_go_package {
+    name:"soong-libmedia_jni-mediatek",
+    pkgPath:"android/soong/libmedia_jni/mediatek",
+    deps:[
+        "soong-android",
+        "soong-cc",
+    ],
+    srcs:[
+        "libmedia_jni.go",
+    ],
+    pluginFor:["soong_build"],
+}
+
+mtk_libmedia_jni_defaults {
+    name: "mtk_libmedia_jni_defaults",
+}

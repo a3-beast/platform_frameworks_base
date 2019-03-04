@@ -500,9 +500,8 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         NotificationChannel channel = new NotificationChannel("id", "name",
                 IMPORTANCE_HIGH);
         NotificationRecord r = generateNotificationRecord(channel);
-
-        // isBlocked is only used for user blocking, not app suspension
-        assertFalse(mService.isBlocked(r, mUsageStats));
+        assertTrue(mService.isBlocked(r, mUsageStats));
+        verify(mUsageStats, times(1)).registerSuspendedByAdmin(eq(r));
     }
 
     @Test
@@ -2940,20 +2939,6 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 new NotificationRecord(mContext, sbn2, mock(NotificationChannel.class));
 
         assertFalse(mService.isVisuallyInterruptive(r1, r2));
-    }
-
-    @Test
-    public void testVisualDifference_summaryNewNotification() {
-        Notification.Builder nb2 = new Notification.Builder(mContext, "")
-                .setGroup("bananas")
-                .setFlag(Notification.FLAG_GROUP_SUMMARY, true)
-                .setContentText("bar");
-        StatusBarNotification sbn2 = new StatusBarNotification(PKG, PKG, 0, "tag", mUid, 0,
-                nb2.build(), new UserHandle(mUid), null, 0);
-        NotificationRecord r2 =
-                new NotificationRecord(mContext, sbn2, mock(NotificationChannel.class));
-
-        assertFalse(mService.isVisuallyInterruptive(null, r2));
     }
 
     @Test

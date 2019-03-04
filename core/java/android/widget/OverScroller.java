@@ -905,11 +905,17 @@ public class OverScroller {
          */
         boolean update() {
             final long time = AnimationUtils.currentAnimationTimeMillis();
-            final long currentTime = time - mStartTime;
+            long currentTime = time - mStartTime;
 
             if (currentTime == 0) {
-                // Skip work but report that we're still going if we have a nonzero duration.
-                return mDuration > 0;
+                /// M: for 03506766, when currentTime == 0, it will not update position of the
+                // the scroller, then in NestedScrollView, it will not trigger latter scroll action
+                // make sure the currentTime is not 0 and keep position updated @{
+
+                // // Skip work but report that we're still going if we have a nonzero duration.
+                // return mDuration > 0;
+                currentTime++;
+                /// @}
             }
             if (currentTime > mDuration) {
                 return false;

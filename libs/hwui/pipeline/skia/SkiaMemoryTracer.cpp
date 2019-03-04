@@ -106,9 +106,9 @@ void SkiaMemoryTracer::processElement() {
                 resourceValues.insert({key, sizeResult->second});
             }
         } else {
-            mCurrentValues.clear();
-            mCurrentValues.insert({key, sizeResult->second});
-            mResults.insert({resourceName, mCurrentValues});
+            std::unordered_map<const char*, TraceValue> mtempValues;
+            mtempValues.insert({key, sizeResult->second});
+            mResults.insert({resourceName, mtempValues});
         }
     }
 

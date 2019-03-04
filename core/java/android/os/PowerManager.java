@@ -397,6 +397,13 @@ public final class PowerManager {
     public static final int GO_TO_SLEEP_REASON_ACCESSIBILITY = 7;
 
     /**
+     * Go to sleep reason code: Going to sleep due to shutdown.
+     * @hide
+     * @internal
+     */
+    public static final int GO_TO_SLEEP_REASON_SHUTDOWN = 8;
+
+    /**
      * Go to sleep flag: Skip dozing state and directly go to full sleep.
      * @hide
      */

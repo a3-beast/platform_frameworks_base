@@ -53,7 +53,7 @@ import java.text.DateFormat;
 public class MediaFocusControl implements PlayerFocusEnforcer {
 
     private static final String TAG = "MediaFocusControl";
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG) || !"user".equals(Build.TYPE);
 
     /**
      * set to true so the framework enforces ducking itself, without communicating to apps

@@ -29,7 +29,6 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
-import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
@@ -262,7 +261,7 @@ public final class BluetoothA2dp implements BluetoothProfile {
         ComponentName comp = intent.resolveSystemService(mContext.getPackageManager(), 0);
         intent.setComponent(comp);
         if (comp == null || !mContext.bindServiceAsUser(intent, mConnection, 0,
-                UserHandle.CURRENT_OR_SELF)) {
+                mContext.getUser())) {
             Log.e(TAG, "Could not bind to Bluetooth A2DP Service with " + intent);
             return false;
         }

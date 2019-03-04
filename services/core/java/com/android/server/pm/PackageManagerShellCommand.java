@@ -2497,7 +2497,13 @@ class PackageManagerShellCommand extends ShellCommand {
             final LocalIntentReceiver receiver = new LocalIntentReceiver();
             session.commit(receiver.getIntentSender());
 
-            final Intent result = receiver.getResult();
+            // wait 300s timeout for get install result
+            final Intent result = receiver.getResult(300);
+            if (result == null) {
+                pw.println("Failure [install timeout]");
+                return PackageInstaller.STATUS_FAILURE;
+            }
+
             final int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS,
                     PackageInstaller.STATUS_FAILURE);
             if (status == PackageInstaller.STATUS_SUCCESS) {
@@ -2951,6 +2957,14 @@ class PackageManagerShellCommand extends ShellCommand {
         public Intent getResult() {
             try {
                 return mResult.take();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public Intent getResult(int timeout) {
+            try {
+                return mResult.poll(timeout, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }

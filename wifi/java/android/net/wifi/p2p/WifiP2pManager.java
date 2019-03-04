@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import android.os.Process;
+
 /**
  * This class provides the API for managing Wi-Fi peer-to-peer connectivity. This lets an
  * application discover available peers, setup connection to peers and query for the list of peers.
@@ -701,6 +703,11 @@ public class WifiP2pManager {
          * created by the app can be removed.
          */
         public void close() {
+            Log.d(TAG, Thread.currentThread().getStackTrace()[2].getMethodName() +
+                    "(), pid: " + Process.myPid() + ", tid: " + Process.myTid() + ", uid: " +
+                    Process.myUid());
+            new Throwable().printStackTrace() ;
+
             if (mP2pManager == null) {
                 Log.w(TAG, "Channel.close(): Null mP2pManager!?");
             } else {
@@ -1087,6 +1094,9 @@ public class WifiP2pManager {
      * @param listener for callbacks on success or failure. Can be null.
      */
     public void removeGroup(Channel c, ActionListener listener) {
+        Log.d(TAG, Thread.currentThread().getStackTrace()[2].getMethodName() +
+                    "(), pid: " + Process.myPid() + ", tid: " + Process.myTid() + ", uid: " +
+                    Process.myUid());
         checkChannel(c);
         c.mAsyncChannel.sendMessage(REMOVE_GROUP, 0, c.putListener(listener));
     }

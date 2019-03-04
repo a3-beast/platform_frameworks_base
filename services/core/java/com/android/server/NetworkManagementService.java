@@ -618,6 +618,8 @@ public class NetworkManagementService extends INetworkManagementService.Stub
      * existing in-memory rules.
      */
     private void prepareNativeDaemon() {
+        ///M: enable debug info
+        if(!android.os.Build.IS_USER) mConnector.setDebug(true);
 
         mBandwidthControlEnabled = false;
 
@@ -1579,9 +1581,11 @@ public class NetworkManagementService extends INetworkManagementService.Stub
         if (!mBandwidthControlEnabled) return;
 
         synchronized (mQuotaLock) {
-            if (mActiveQuotas.containsKey(iface)) {
-                throw new IllegalStateException("iface " + iface + " already has quota");
-            }
+            // M: marked due to netd performance issue.
+            // Skip this so that BandwidthController can run updateQuota
+            // if (mActiveQuotas.containsKey(iface)) {
+            //     throw new IllegalStateException("iface " + iface + " already has quota");
+            // }
 
             try {
                 // TODO: support quota shared across interfaces

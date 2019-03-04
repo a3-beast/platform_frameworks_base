@@ -1752,6 +1752,37 @@ public final class Debug
     public static native long getPss();
 
     /**
+     * Retrieves the PSwap memory used by the process as given by the
+     * smaps.
+     * @hide
+     */
+    public static native long getPswap(int pid);
+
+    /**
+     * Retrieves the compressed zram size.
+     * @hide
+     */
+    public static native long getCompZram();
+
+    /**
+     * Retrieves the uncompressed zram size.
+     * @hide
+     */
+    public static native long getOrigZram();
+
+    /**
+     * Retrieves the total zram size.
+     * @hide
+     */
+    public static native long getTotalZram();
+
+    /**
+     * Retrieves the zram compress method.
+     * @hide
+     */
+    public static native short getZramCompressMethod();
+
+    /**
      * Retrieves the PSS memory used by the process as given by the
      * smaps.  Optionally supply a long array of 2 entries to also
      * receive the Uss and SwapPss of the process, and another array to also
@@ -1791,7 +1822,17 @@ public final class Debug
     /** @hide */
     public static final int MEMINFO_KERNEL_STACK = 14;
     /** @hide */
-    public static final int MEMINFO_COUNT = 15;
+    public static final int MEMINFO_ION_CACHED = 15;
+    /** @hide */
+    public static final int MEMINFO_GPU_CACHED = 16;
+    /** @hide */
+    public static final int MEMINFO_ION_DISP = 17;
+    /** @hide */
+    public static final int MEMINFO_TRACE = 18;
+    /** @hide */
+    public static final int MEMINFO_CMA_USAGE = 19;
+    /** @hide */
+    public static final int MEMINFO_COUNT = 20;
 
     /**
      * Retrieves /proc/meminfo.  outSizes is filled with fields
@@ -2400,4 +2441,27 @@ public final class Debug
             VMDebug.attachAgent(library + "=" + options, classLoader);
         }
     }
+
+
+    /**
+     * M: Utility functions to get available ZRAM space @{
+     * @hide
+     */
+    public static final float getZramCompressRatio() {
+        long compZram = Debug.getCompZram();
+        long origZram = Debug.getOrigZram();
+        int threshold = 3072 * 1024; //Experiment threshold(bytes)
+
+        if (0 == compZram) {
+            return 1.0f; //ZRAM is not enabled
+        } else if (compZram < threshold) { // Return TypicalRatio (LZO1X, LZ4K) <=> (2.63, 3.2)
+            if (1 == Debug.getZramCompressMethod())
+                return 3.2f; //LZ4K
+            else
+                return 2.63f; //LZO
+        } else {
+            return (((float) origZram) / compZram); //Runtime value
+        }
+    }
+    /** @}*/
 }

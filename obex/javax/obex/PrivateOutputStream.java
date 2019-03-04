@@ -36,12 +36,18 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 
+import android.util.Log;
+
 /**
  * This object provides an output stream to the Operation objects used in this
  * package.
  * @hide
  */
 public final class PrivateOutputStream extends OutputStream {
+
+    private static final String TAG = "PrivateOutputStream";
+
+    private static final boolean V = ObexHelper.VDBG;
 
     private BaseStream mParent;
 
@@ -95,6 +101,7 @@ public final class PrivateOutputStream extends OutputStream {
 
     @Override
     public synchronized void write(byte[] buffer, int offset, int count) throws IOException {
+        if(V) Log.d(TAG, "write buffer = " + count);
         int offset1 = offset;
         int remainLength = count;
 

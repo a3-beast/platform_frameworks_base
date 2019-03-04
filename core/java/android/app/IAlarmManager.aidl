@@ -37,5 +37,8 @@ interface IAlarmManager {
     void remove(in PendingIntent operation, in IAlarmListener listener);
     long getNextWakeFromIdleTime();
     AlarmManager.AlarmClockInfo getNextAlarmClock(int userId);
+    /// M: added for powerOffAlarm feature @{
+    void cancelPoweroffAlarm(String name);
+    ///@}
     long currentNetworkTimeMillis();
 }

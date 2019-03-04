@@ -26,7 +26,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
-        android:minHeight="48dp"
         android:minWidth="132dp"
         android:textAppearance="@style/TextAppearance.QS.DetailButton"
         android:focusable="true" />
@@ -36,7 +35,6 @@
         style="@style/QSBorderlessButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:minHeight="48dp"
         android:minWidth="88dp"
         android:textAppearance="@style/TextAppearance.QS.DetailButton"
         android:focusable="true"/>

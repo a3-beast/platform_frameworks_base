@@ -39,6 +39,9 @@ import com.android.internal.app.IAppOpsCallback;
 import com.android.internal.app.IAppOpsService;
 import com.android.internal.util.Preconditions;
 
+import com.mediatek.cta.CtaManager;
+import com.mediatek.cta.CtaManagerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -592,11 +595,16 @@ public class AppOpsManager {
     /** @hide */
     @SystemApi @TestApi
     public static final String OPSTR_MANAGE_IPSEC_TUNNELS = "android:manage_ipsec_tunnels";
+
     /** @hide */
     @SystemApi @TestApi
     public static final String OPSTR_START_FOREGROUND = "android:start_foreground";
     /** @hide */
     public static final String OPSTR_BLUETOOTH_SCAN = "android:bluetooth_scan";
+
+    /**M:Added for CTA-Permission Control.@{**/
+    private static final CtaManager CTA_MANAGER = CtaManagerFactory.getInstance().makeCtaManager();
+    /**@}**/
 
     // Warning: If an permission is added here it also has to be added to
     // com.android.packageinstaller.permission.utils.EventLogger
@@ -1394,6 +1402,11 @@ public class AppOpsManager {
      * @hide
      */
     public static int opToSwitch(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opToSwitch(op);
+        }
+        //@}
         return sOpToSwitch[op];
     }
 
@@ -1402,6 +1415,11 @@ public class AppOpsManager {
      * @hide
      */
     public static String opToName(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opToName(op);
+        }
+        //@}
         if (op == OP_NONE) return "NONE";
         return op < sOpNames.length ? sOpNames[op] : ("Unknown(" + op + ")");
     }
@@ -1410,6 +1428,11 @@ public class AppOpsManager {
      * @hide
      */
     public static int strDebugOpToOp(String op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.strDebugOpToOp(op);
+        }
+        //@}
         for (int i=0; i<sOpNames.length; i++) {
             if (sOpNames[i].equals(op)) {
                 return i;
@@ -1423,6 +1446,11 @@ public class AppOpsManager {
      * @hide
      */
     public static String opToPermission(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opToPermission(op);
+        }
+        //@}
         return sOpPerms[op];
     }
 
@@ -1431,6 +1459,11 @@ public class AppOpsManager {
      * @hide
      */
     public static String opToRestriction(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opToRestriction(op);
+        }
+        //@}
         return sOpRestrictions[op];
     }
 
@@ -1441,6 +1474,11 @@ public class AppOpsManager {
      * @hide
      */
     public static int permissionToOpCode(String permission) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.permissionToOpCode(permission);
+        }
+        //@}
         Integer boxedOpCode = sPermToOp.get(permission);
         return boxedOpCode != null ? boxedOpCode : OP_NONE;
     }
@@ -1451,6 +1489,11 @@ public class AppOpsManager {
      * @hide
      */
     public static boolean opAllowSystemBypassRestriction(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opAllowSystemBypassRestriction(op);
+        }
+        //@}
         return sOpAllowSystemRestrictionBypass[op];
     }
 
@@ -1459,6 +1502,11 @@ public class AppOpsManager {
      * @hide
      */
     public static int opToDefaultMode(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported() || op >= sOpDefaultMode.length) {
+            return CTA_MANAGER.opToDefaultMode(op);
+        }
+        //@}
         return sOpDefaultMode[op];
     }
 
@@ -1478,6 +1526,11 @@ public class AppOpsManager {
      * @hide
      */
     public static boolean opAllowsReset(int op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.opAllowsReset(op);
+        }
+        //@}
         return !sOpDisableReset[op];
     }
 
@@ -1901,6 +1954,11 @@ public class AppOpsManager {
      * @return The app op associated with the permission or null.
      */
     public static String permissionToOp(String permission) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.permissionToOp(permission);
+        }
+        //@}
         final Integer opCode = sPermToOp.get(permission);
         if (opCode == null) {
             return null;
@@ -2089,6 +2147,10 @@ public class AppOpsManager {
      * {@hide}
      */
     public static int strOpToOp(String op) {
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            return CTA_MANAGER.strOpToOp(op);
+        }
         Integer val = sOpStrToOp.get(op);
         if (val == null) {
             throw new IllegalArgumentException("Unknown operation string: " + op);

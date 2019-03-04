@@ -241,6 +241,8 @@ public final class ServerOperation implements Operation, BaseStream {
         if (body != null) {
             mHasBody = true;
         }
+
+        if(V) Log.d(TAG,"handleObexPacket has body = " + mHasBody);
         if (mListener.getConnectionId() != -1 && requestHeader.mConnectionID != null) {
             mListener.setConnectionId(ObexHelper
                     .convertToLong(requestHeader.mConnectionID));
@@ -373,6 +375,7 @@ public final class ServerOperation implements Operation, BaseStream {
      * @throws IOException if an IO error occurs
      */
     public synchronized boolean sendReply(int type) throws IOException {
+        if(V) Log.d(TAG,"sendReply type = " + type);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         boolean skipSend = false;
         boolean skipReceive = false;
@@ -484,8 +487,9 @@ public final class ServerOperation implements Operation, BaseStream {
                     bodyLength = mMaxPacketLength - headerArray.length - 6;
                 }
 
+                if(V) Log.d(TAG,"readBytes +++");
                 byte[] body = mPrivateOutput.readBytes(bodyLength);
-
+                if(V) Log.d(TAG,"readBytes --- body = " + body.length);
                 /*
                  * Since this is a put request if the final bit is set or
                  * the output stream is closed we need to send the 0x49
@@ -536,6 +540,7 @@ public final class ServerOperation implements Operation, BaseStream {
                 // Receive and handle data (only send reply if !skipSend)
                 // Read a complete OBEX Packet
                 ObexPacket packet = ObexPacket.read(mInput);
+                if(V) Log.d(TAG,"read packet finished, packet length = " + packet.mLength);
 
                 int headerId = packet.mHeaderId;
                 if ((headerId != ObexHelper.OBEX_OPCODE_PUT)
@@ -582,6 +587,7 @@ public final class ServerOperation implements Operation, BaseStream {
                 }
 
             }
+            if(V) Log.d(TAG,"sendReply completed");
             return true;
         } else {
             return false;

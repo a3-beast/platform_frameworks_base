@@ -50,6 +50,11 @@ jfieldID gBitmap_ninePatchInsetsFieldID;
 jclass gBitmapConfig_class;
 jmethodID gBitmapConfig_nativeToConfigMethodID;
 
+#ifdef MTK_IMAGE_ENABLE_PQ_FOR_JPEG
+jfieldID gOptions_postprocFieldID;
+jfieldID gOptions_postprocflagFieldID;
+#endif
+
 using namespace android;
 
 jstring encodedFormatToString(JNIEnv* env, SkEncodedImageFormat format) {
@@ -191,6 +196,11 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     jobject javaBitmap = NULL;
     sk_sp<SkColorSpace> prefColorSpace = nullptr;
 
+#ifdef MTK_IMAGE_ENABLE_PQ_FOR_JPEG
+    int postproc = 0;
+    int postprocflag = 0;
+#endif
+
     // Update with options supplied by the client.
     if (options != NULL) {
         sampleSize = env->GetIntField(options, gOptions_sampleSizeFieldID);
@@ -219,6 +229,11 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
         isMutable = env->GetBooleanField(options, gOptions_mutableFieldID);
         requireUnpremultiplied = !env->GetBooleanField(options, gOptions_premultipliedFieldID);
         javaBitmap = env->GetObjectField(options, gOptions_bitmapFieldID);
+
+#ifdef MTK_IMAGE_ENABLE_PQ_FOR_JPEG
+        postproc = env->GetBooleanField(options, gOptions_postprocFieldID);
+        postprocflag = env->GetIntField(options, gOptions_postprocflagFieldID);
+#endif
 
         if (env->GetBooleanField(options, gOptions_scaledFieldID)) {
             const int density = env->GetIntField(options, gOptions_densityFieldID);
@@ -293,6 +308,12 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
         env->SetIntField(options, gOptions_widthFieldID, scaledWidth);
         env->SetIntField(options, gOptions_heightFieldID, scaledHeight);
         env->SetObjectField(options, gOptions_mimeFieldID, mimeType);
+
+#ifdef MTK_IMAGE_ENABLE_PQ_FOR_JPEG
+        if (codec->getEncodedFormat() == SkEncodedImageFormat::kJPEG) {
+            codec->setPostProcFlag(postproc | (postprocflag << 4));
+        }
+#endif
 
         jint configID = GraphicsJNI::colorTypeToLegacyBitmapConfig(decodeColorType);
         if (isHardware) {
@@ -514,6 +535,38 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
             bitmapCreateFlags, ninePatchChunk, ninePatchInsets, -1);
 }
 
+#ifdef MTK_OMADRM_SUPPORT
+/// M: Add for DRM, check whether is drm image {@
+static bool isDrm(char* header) {
+    if (header == NULL) {
+        return false;
+    }
+    // 1. CTA5: check magic(CTA5)
+    const size_t CTA_LEN = 4;
+    const char CTA_MAGIC[CTA_LEN + 1] = "CTA5";
+    if (memcmp(header, CTA_MAGIC, CTA_LEN) == 0) {
+        return true;
+    }
+
+    // 2. OMADRM: check version(1) and mimetpe(image/)
+    int version = header[0];
+    if (version != 1) {
+        return false;
+    }
+    const size_t MAX_MIME_LEN = 64;
+    size_t mimeLen = header[1];
+    if (mimeLen > MAX_MIME_LEN) {
+        return false;
+    }
+    const size_t IMAGE_MIME_LEN = 6;
+    const char IMAGE_MIME[IMAGE_MIME_LEN + 1] = "image/";
+    if (memcmp(header + 3, IMAGE_MIME, IMAGE_MIME_LEN) != 0) {
+        return false;
+    }
+    return true;
+}
+#endif
+
 static jobject nativeDecodeStream(JNIEnv* env, jobject clazz, jobject is, jbyteArray storage,
         jobject padding, jobject options) {
 
@@ -524,6 +577,31 @@ static jobject nativeDecodeStream(JNIEnv* env, jobject clazz, jobject is, jbyteA
         std::unique_ptr<SkStreamRewindable> bufferedStream(
                 SkFrontBufferedStream::Make(std::move(stream), SkCodec::MinBufferedBytesNeeded()));
         SkASSERT(bufferedStream.get() != NULL);
+#ifdef MTK_OMADRM_SUPPORT
+        /// M: Add for DRM, read header from bufferedStream first to check whether is drm image {@
+        size_t headerSize = SkCodec::MinBufferedBytesNeeded();
+        char* header = new char[headerSize];
+        bufferedStream.get()->read(header, headerSize);
+        if (isDrm(header)) {
+            jbyte* storageToByte = env->GetByteArrayElements(storage, NULL);
+            /// first two byte store header size
+            storageToByte[0] = (jbyte) (0xff & headerSize);
+            storageToByte[1] = (jbyte) (0xff00 & (headerSize >> 8));
+            memcpy(storageToByte + 2, header, headerSize);
+            env->ReleaseByteArrayElements(storage, storageToByte, 0);
+            /// set width, height and mimetype as failed value if need
+            if (options != NULL) {
+                env->SetIntField(options, gOptions_widthFieldID, -1);
+                env->SetIntField(options, gOptions_heightFieldID, -1);
+                env->SetObjectField(options, gOptions_mimeFieldID, 0);
+            }
+            delete[] header; header = NULL;
+            return NULL;
+        }
+        delete[] header; header = NULL;
+        bufferedStream.get()->rewind();
+        /// @}
+#endif
         bitmap = doDecode(env, std::move(bufferedStream), padding, options);
     }
     return bitmap;
@@ -661,6 +739,11 @@ int register_android_graphics_BitmapFactory(JNIEnv* env) {
     gOptions_outColorSpaceFieldID = GetFieldIDOrDie(env, options_class, "outColorSpace",
              "Landroid/graphics/ColorSpace;");
     gOptions_mCancelID = GetFieldIDOrDie(env, options_class, "mCancel", "Z");
+
+#ifdef MTK_IMAGE_ENABLE_PQ_FOR_JPEG
+    gOptions_postprocFieldID = GetFieldIDOrDie(env, options_class, "inPostProc", "Z");
+    gOptions_postprocflagFieldID = GetFieldIDOrDie(env, options_class, "inPostProcFlag", "I");
+#endif
 
     jclass bitmap_class = FindClassOrDie(env, "android/graphics/Bitmap");
     gBitmap_ninePatchInsetsFieldID = GetFieldIDOrDie(env, bitmap_class, "mNinePatchInsets",

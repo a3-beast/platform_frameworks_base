@@ -438,13 +438,17 @@ public class TetherInterfaceStateMachine extends StateMachine {
             final RaParams deprecatedParams =
                     RaParams.getDeprecatedRaParams(mLastRaParams, newParams);
 
-            configureLocalIPv6Routes(deprecatedParams.prefixes,
-                    (newParams != null) ? newParams.prefixes : null);
+            try {
+                configureLocalIPv6Routes(deprecatedParams.prefixes,
+                        (newParams != null) ? newParams.prefixes : null);
 
-            configureLocalIPv6Dns(deprecatedParams.dnses,
-                    (newParams != null) ? newParams.dnses : null);
+                configureLocalIPv6Dns(deprecatedParams.dnses,
+                        (newParams != null) ? newParams.dnses : null);
 
-            mRaDaemon.buildNewRa(deprecatedParams, newParams);
+                mRaDaemon.buildNewRa(deprecatedParams, newParams);
+            } catch (Exception e) {
+                mLog.e("Failed to setRaParams:" + e);
+            }
         }
 
         mLastRaParams = newParams;

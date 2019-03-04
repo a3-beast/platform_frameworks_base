@@ -71,6 +71,9 @@ import com.android.internal.util.Preconditions;
 import com.android.internal.util.XmlUtils;
 import com.android.internal.util.function.pooled.PooledLambda;
 
+import com.mediatek.cta.CtaManager;
+import com.mediatek.cta.CtaManagerFactory;
+
 import libcore.util.EmptyArray;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -107,6 +110,10 @@ import static android.app.AppOpsManager.UID_STATE_TOP;
 public class AppOpsService extends IAppOpsService.Stub {
     static final String TAG = "AppOps";
     static final boolean DEBUG = false;
+    /**M.Added for CTA-Permission Control.@{**/
+    private static final CtaManager CTA_MANAGER =
+            CtaManagerFactory.getInstance().makeCtaManager();
+    /**@.}**/
 
     private static final int NO_VERSION = -1;
     /** Increment by one every time and add the corresponding upgrade logic in
@@ -1865,8 +1872,16 @@ public class AppOpsService extends IAppOpsService.Stub {
     }
 
     private void verifyIncomingOp(int op) {
-        if (op >= 0 && op < AppOpsManager._NUM_OP) {
-            return;
+        /// M: CTA requirement - permission control  @{
+        if (CTA_MANAGER.isCtaSupported()) {
+            if (op >= 0 && op < CTA_MANAGER.getOpNum()) {
+                return;
+            }
+        } else {
+        //@}
+            if (op >= 0 && op < AppOpsManager._NUM_OP) {
+                return;
+            }
         }
         throw new IllegalArgumentException("Bad operation #" + op);
     }
@@ -3443,7 +3458,11 @@ public class AppOpsService extends IAppOpsService.Stub {
         checkSystemUid("setUserRestrictions");
         Preconditions.checkNotNull(restrictions);
         Preconditions.checkNotNull(token);
-        for (int i = 0; i < AppOpsManager._NUM_OP; i++) {
+        /// M: CTA requirement - permission control  @{
+        final int opNum = CTA_MANAGER.isCtaSupported() ?
+                CTA_MANAGER.getOpNum() : AppOpsManager._NUM_OP;
+        for (int i = 0; i < opNum; i++) {
+        //@}
             String restriction = AppOpsManager.opToRestriction(i);
             if (restriction != null) {
                 setUserRestrictionNoCheck(i, restrictions.getBoolean(restriction, false), token,
@@ -3654,7 +3673,13 @@ public class AppOpsService extends IAppOpsService.Stub {
 
                     boolean[] userRestrictions = perUserRestrictions.get(thisUserId);
                     if (userRestrictions == null && restricted) {
-                        userRestrictions = new boolean[AppOpsManager._NUM_OP];
+                        /// M: CTA requirement - permission control  @{
+                        if (CTA_MANAGER.isCtaSupported()) {
+                            userRestrictions = new boolean[CTA_MANAGER.getOpNum()];
+                        } else {
+                        //@}
+                            userRestrictions = new boolean[AppOpsManager._NUM_OP];
+                        }
                         perUserRestrictions.put(thisUserId, userRestrictions);
                     }
                     if (userRestrictions != null && userRestrictions[code] != restricted) {

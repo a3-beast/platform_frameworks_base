@@ -63,7 +63,7 @@ import java.util.StringJoiner;
  */
 public class IpNeighborMonitor extends PacketReader {
     private static final String TAG = IpNeighborMonitor.class.getSimpleName();
-    private static final boolean DBG = false;
+    private static final boolean DBG = !android.os.Build.IS_USER;
     private static final boolean VDBG = false;
 
     /**

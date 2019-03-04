@@ -16,6 +16,9 @@
 #ifndef FRAMEINFO_H_
 #define FRAMEINFO_H_
 
+/// M:FPSGO notify @{
+#include <mediatek/MTKFrameBudgetIndicator.h>
+/// @}
 #include "utils/Macros.h"
 
 #include <cutils/compiler.h>
@@ -100,13 +103,27 @@ class FrameInfo {
 public:
     void importUiThreadInfo(int64_t* info);
 
-    void markSyncStart() { set(FrameInfoIndex::SyncStart) = systemTime(CLOCK_MONOTONIC); }
+    void markSyncStart() {
+        set(FrameInfoIndex::SyncStart) = systemTime(CLOCK_MONOTONIC);
+        /// M:FPSGO notify @{
+        if (get(FrameInfoIndex::Flags) & FrameInfoFlags::SurfaceCanvas)
+            notifySyncStart(getpid(), get(FrameInfoIndex::IntendedVsync));
+        /// @}
+    }
 
     void markIssueDrawCommandsStart() {
         set(FrameInfoIndex::IssueDrawCommandsStart) = systemTime(CLOCK_MONOTONIC);
     }
 
-    void markSwapBuffers() { set(FrameInfoIndex::SwapBuffers) = systemTime(CLOCK_MONOTONIC); }
+    void markSwapBuffers() {
+        set(FrameInfoIndex::SwapBuffers) = systemTime(CLOCK_MONOTONIC);
+        /// M:FPSGO notify @{
+        notifySwapBuffers();
+        notifyFrameComplete(getpid(),
+            duration(FrameInfoIndex::IntendedVsync, FrameInfoIndex::SwapBuffers),
+            get(FrameInfoIndex::IntendedVsync));
+        /// @}
+    }
 
     void markFrameCompleted() { set(FrameInfoIndex::FrameCompleted) = systemTime(CLOCK_MONOTONIC); }
 

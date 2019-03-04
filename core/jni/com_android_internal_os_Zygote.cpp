@@ -45,7 +45,6 @@
 #include <unistd.h>
 
 #include "android-base/logging.h"
-#include <android-base/properties.h>
 #include <android-base/file.h>
 #include <android-base/stringprintf.h>
 #include <cutils/fs.h>
@@ -71,7 +70,6 @@ namespace {
 using android::String8;
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
-using android::base::GetBoolProperty;
 
 #define CREATE_ERROR(...) StringPrintf("%s:%d: ", __FILE__, __LINE__). \
                               append(StringPrintf(__VA_ARGS__))
@@ -119,6 +117,7 @@ static void SigChldHandler(int /*signal_number*/) {
      // handler in the zygote process.  If the LOG() implementation
      // changes its locking strategy or its use of syscalls within the
      // lazy-init critical section, its use here may become unsafe.
+#if 0 // MTK_AVOID_LOG_REENTRY
     if (WIFEXITED(status)) {
       ALOGI("Process %d exited cleanly (%d)", pid, WEXITSTATUS(status));
     } else if (WIFSIGNALED(status)) {
@@ -127,6 +126,7 @@ static void SigChldHandler(int /*signal_number*/) {
         ALOGI("Process %d dumped core.", pid);
       }
     }
+#endif
 
     // If the just-crashed process is the system_server, bring down zygote
     // so that it is restarted by init and system server will be restarted
@@ -139,9 +139,11 @@ static void SigChldHandler(int /*signal_number*/) {
 
   // Note that we shouldn't consider ECHILD an error because
   // the secondary zygote might have no children left to wait for.
+#if 0 // MTK_AVOID_LOG_REENTRY
   if (pid < 0 && errno != ECHILD) {
     ALOGW("Zygote SIGCHLD error in waitpid: %s", strerror(errno));
   }
+#endif
 
   errno = saved_errno;
 }
@@ -891,16 +893,12 @@ static jint com_android_internal_os_Zygote_nativeForkSystemServer(
           RuntimeAbort(env, __LINE__, "System server process has died. Restarting Zygote!");
       }
 
-      bool low_ram_device = GetBoolProperty("ro.config.low_ram", false);
-      bool per_app_memcg = GetBoolProperty("ro.config.per_app_memcg", low_ram_device);
-      if (per_app_memcg) {
-          // Assign system_server to the correct memory cgroup.
-          // Not all devices mount /dev/memcg so check for the file first
-          // to avoid unnecessarily printing errors and denials in the logs.
-          if (!access("/dev/memcg/system/tasks", F_OK) &&
+      // Assign system_server to the correct memory cgroup.
+      // Not all devices mount /dev/memcg so check for the file first
+      // to avoid unnecessarily printing errors and denials in the logs.
+      if (!access("/dev/memcg/system/tasks", F_OK) &&
                 !WriteStringToFile(StringPrintf("%d", pid), "/dev/memcg/system/tasks")) {
-              ALOGE("couldn't write %d to /dev/memcg/system/tasks", pid);
-          }
+        ALOGE("couldn't write %d to /dev/memcg/system/tasks", pid);
       }
   }
   return pid;

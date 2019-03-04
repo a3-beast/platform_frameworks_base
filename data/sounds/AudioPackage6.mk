@@ -46,3 +46,8 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/notifications/ogg/Xenon.ogg:system/media/audio/notifications/Xenon.ogg \
 	$(LOCAL_PATH)/notifications/ogg/Zirconium.ogg:system/media/audio/notifications/Zirconium.ogg \
 	$(LOCAL_PATH)/ringtones/ogg/Sceptrum.ogg:system/media/audio/ringtones/Sceptrum.ogg \
+
+#//!++
+PRODUCT_COPY_FILES += \
+        $(LOCAL_PATH)/effects/material/ogg/VideoStop.ogg:system/media/audio/ui/VideoStop.ogg
+#//!--

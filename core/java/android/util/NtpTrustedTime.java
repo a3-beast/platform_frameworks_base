@@ -40,7 +40,9 @@ public class NtpTrustedTime implements TrustedTime {
     private static NtpTrustedTime sSingleton;
     private static Context sContext;
 
-    private final String mServer;
+    //M: For multiple NTP server retry
+    //private final String mServer;
+    private String mServer;
     private final long mTimeout;
 
     private ConnectivityManager mCM;
@@ -167,5 +169,18 @@ public class NtpTrustedTime implements TrustedTime {
 
     public long getCachedNtpTimeReference() {
         return mCachedNtpElapsedRealtime;
+    }
+
+    //M: For multiple NTP server retry
+    public void setServer(String server) {
+        Log.d(TAG, "setServer:[" + server + "]");
+        if (server != null)
+        {
+            mServer = server;
+        }
+    }
+    public String getServer() {
+        Log.d(TAG, "getServer:[" + mServer + "]");
+        return mServer;
     }
 }
