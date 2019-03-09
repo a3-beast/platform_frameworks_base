@@ -2025,12 +2025,7 @@ public class CameraDeviceImpl extends CameraDevice
 
                 final CaptureCallbackHolder holder =
                         CameraDeviceImpl.this.mCaptureCallbackMap.get(requestId);
-                final CaptureRequest request = holder.getRequest(resultExtras.getSubsequenceId());
-
-                boolean isPartialResult =
-                        (resultExtras.getPartialResultCount() < mTotalPartialCount);
-                boolean isReprocess = request.isReprocess();
-
+                //!++
                 // Check if we have a callback for this
                 if (holder == null) {
                     if (DEBUG) {
@@ -2039,12 +2034,33 @@ public class CameraDeviceImpl extends CameraDevice
                                         + frameNumber);
                     }
 
-                    mFrameNumberTracker.updateTracker(frameNumber, /*result*/null, isPartialResult,
-                            isReprocess);
+                    mFrameNumberTracker.updateTracker(frameNumber, /*result*/null, false,
+                            false);
 
                     return;
                 }
+                //!--
+                final CaptureRequest request = holder.getRequest(resultExtras.getSubsequenceId());
 
+                boolean isPartialResult =
+                        (resultExtras.getPartialResultCount() < mTotalPartialCount);
+                boolean isReprocess = request.isReprocess();
+
+//!++
+                // Check if we have a callback for this
+//               if (holder == null) {
+//                   if (DEBUG) {
+//                       Log.d(TAG,
+//                               "holder is null, early return at frame "
+//                                       + frameNumber);
+//                   }
+//
+//                   mFrameNumberTracker.updateTracker(frameNumber, /*result*/null, isPartialResult,
+//                            isReprocess);
+//
+//                    return;
+//                }
+//!--
                 if (isClosed()) {
                     if (DEBUG) {
                         Log.d(TAG,
