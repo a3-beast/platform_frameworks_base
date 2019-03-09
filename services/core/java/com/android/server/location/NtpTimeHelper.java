@@ -188,4 +188,8 @@ class NtpTimeHelper {
             // This happens when the WakeLock is already released.
         }
     }
+	
+    public void setNtpTimeStateIdle() {
+        mInjectNtpTimeState = STATE_IDLE;
+    }
 }

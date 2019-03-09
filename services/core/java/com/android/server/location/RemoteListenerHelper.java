@@ -53,6 +53,14 @@ abstract class RemoteListenerHelper<TListener extends IInterface> {
 
     private int mLastReportedResult = RESULT_UNKNOWN;
 
+    /// M: [Performance] Avoid insert too many runnable into message queue.
+    private static final boolean DEBUG = false;
+    private static final int RUNNABLE_COUNT_LIMIT = 200;
+    private int mInsertedRunnableCount = 0;
+    private final Object mLock = new Object();
+    private int mLogCount = 0;
+    /// M: mtk add end
+
     protected RemoteListenerHelper(Handler handler, String name) {
         Preconditions.checkNotNull(name);
         mHandler = handler;
@@ -82,6 +90,9 @@ abstract class RemoteListenerHelper<TListener extends IInterface> {
                 return false;
             }
             mListenerMap.put(binder, deathListener);
+            /// M: [Performance] Add debug log to show listener size
+            Log.v(mTag, "addListener, current listener size: " + mListenerMap.size());
+            /// M: mtk add end
 
             // update statuses we already know about, starting from the ones that will never change
             int result;
@@ -178,7 +189,22 @@ abstract class RemoteListenerHelper<TListener extends IInterface> {
 
     private void post(TListener listener, ListenerOperation<TListener> operation) {
         if (operation != null) {
-            mHandler.post(new HandlerRunnable(listener, operation));
+            /// M: [Performance] Limit the runnable size to be posted
+            synchronized (mLock) {
+                if (DEBUG) Log.v(mTag, "post runnable for current size: " + mInsertedRunnableCount);
+                if (mInsertedRunnableCount < RUNNABLE_COUNT_LIMIT) {
+                    mHandler.post(new HandlerRunnable(listener, operation));
+                    mInsertedRunnableCount++;
+                } else {
+                    if ((mLogCount % 10) == 0) {
+                        Log.d(mTag, "Skip post runnable due to size overflow size: "
+                                + mInsertedRunnableCount);
+                        mLogCount = 0;
+                    }
+                    mLogCount++;
+                }
+            }
+            /// M: mtk add end
         }
     }
 
@@ -269,6 +295,13 @@ abstract class RemoteListenerHelper<TListener extends IInterface> {
         @Override
         public void run() {
             try {
+                /// M: [Performance] Limit the runnable size to be posted
+                synchronized (mLock) {
+                    if (DEBUG) Log.v(mTag, "pop runnable for current size: "
+                            + mInsertedRunnableCount);
+                    mInsertedRunnableCount--;
+                }
+                /// M: mtk add end
                 mOperation.execute(mListener);
             } catch (RemoteException e) {
                 Log.v(mTag, "Error in monitored listener.", e);
