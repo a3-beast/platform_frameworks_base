@@ -36,6 +36,9 @@ import android.os.Messenger;
 import android.os.ResultReceiver;
 import android.os.WorkSource;
 
+/// M: Hotspot manager implementation
+import mediatek.net.wifi.HotspotClient;
+
 /**
  * Interface that allows controlling and querying Wi-Fi connectivity.
  *
@@ -147,8 +150,6 @@ interface IWifiManager
 
     boolean setWifiApConfiguration(in WifiConfiguration wifiConfig, String packageName);
 
-    void notifyUserOfApBandConversion(String packageName);
-
     Messenger getWifiServiceMessenger(String packageName);
 
     void enableTdls(String remoteIPAddress, boolean enable);
@@ -180,5 +181,55 @@ interface IWifiManager
     void registerSoftApCallback(in IBinder binder, in ISoftApCallback callback, int callbackIdentifier);
 
     void unregisterSoftApCallback(int callbackIdentifier);
+	
+    /**
+     * @hide
+     */
+    List<HotspotClient> getHotspotClients();
+
+    /**
+     * @hide
+     */
+    String getClientIp(String deviceAddress);
+
+    /**
+     * @hide
+     */
+    String getClientDeviceName(String deviceAddress);
+
+    /**
+     * @hide
+     */
+    boolean blockClient(in HotspotClient client);
+
+    /**
+     * @hide
+     */
+    boolean unblockClient(in HotspotClient client);
+
+    /**
+     * @hide
+     */
+    boolean isAllDevicesAllowed();
+
+    /**
+     * @hide
+     */
+    boolean setAllDevicesAllowed(boolean enabled, boolean allowAllConnectedDevices);
+
+    /**
+     * @hide
+     */
+    boolean allowDevice(String deviceAddress, String name);
+
+    /**
+     * @hide
+     */
+    boolean disallowDevice(String deviceAddress);
+
+    /**
+     * @hide
+     */
+    List<HotspotClient> getAllowedDevices();
 }
 

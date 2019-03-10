@@ -64,6 +64,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
+/// M: Hotspot manager implementation @{
+import mediatek.net.wifi.WifiHotspotManager;
+
 /**
  * This class provides the primary API for managing all aspects of Wi-Fi
  * connectivity.
@@ -976,6 +979,8 @@ public class WifiManager {
     private LocalOnlyHotspotCallbackProxy mLOHSCallbackProxy;
     @GuardedBy("mLock")
     private LocalOnlyHotspotObserverProxy mLOHSObserverProxy;
+    /// M: Hotspot manager implementation
+    private final WifiHotspotManager mWifiHotspotManager;
 
     /**
      * Create a new WifiManager instance.
@@ -992,6 +997,9 @@ public class WifiManager {
         mService = service;
         mLooper = looper;
         mTargetSdkVersion = context.getApplicationInfo().targetSdkVersion;
+		
+        /// M: Hotspot manager implementation
+        mWifiHotspotManager = new WifiHotspotManager(service);
     }
 
     /**
@@ -2164,21 +2172,6 @@ public class WifiManager {
     public boolean setWifiApConfiguration(WifiConfiguration wifiConfig) {
         try {
             return mService.setWifiApConfiguration(wifiConfig, mContext.getOpPackageName());
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        }
-    }
-
-    /**
-     * Method that triggers a notification to the user about a conversion to their saved AP config.
-     *
-     * @hide
-     */
-    @RequiresPermission(android.Manifest.permission.NETWORK_SETTINGS)
-    public void notifyUserOfApBandConversion() {
-        Log.d(TAG, "apBand was converted, notify the user");
-        try {
-            mService.notifyUserOfApBandConversion(mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -3718,5 +3711,14 @@ public class WifiManager {
                 mCallback.onProvisioningFailure(status);
             });
         }
+    }
+    /// M: Hotspot manager implementation
+    /**
+     * Return a Wifi hotspot manager.
+     * @return a Wifi hotspot manager.
+     * @hide
+     */
+    public WifiHotspotManager getWifiHotspotManager() {
+        return mWifiHotspotManager;
     }
 }
